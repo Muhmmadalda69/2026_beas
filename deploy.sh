@@ -94,8 +94,27 @@ fi
 # ---------------------------------------------------------------------------
 # 2. Build & start
 # ---------------------------------------------------------------------------
-info "Membangun image & menjalankan stack (port 80)…"
-$COMPOSE up -d --build
+# Warn on low memory: compiling all images at once OOM-kills the build on small
+# servers. We build sequentially below, but very small boxes still need swap.
+total_mem_mb=$(awk '/MemTotal/{print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)
+swap_mb=$(awk '/SwapTotal/{print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)
+if [ "$total_mem_mb" -gt 0 ] && [ "$total_mem_mb" -lt 1800 ] && [ "$swap_mb" -lt 512 ]; then
+  warn "RAM hanya ${total_mem_mb}MB tanpa swap memadai. Build Go/Next bisa OOM."
+  warn "Disarankan tambah swap 2GB (sekali saja, sebagai root):"
+  echo  "      fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile"
+  echo  "      echo '/swapfile none swap sw 0 0' >> /etc/fstab"
+fi
+
+# Build images one at a time so only a single compiler runs at peak — this is
+# what prevents the parallel-build OOM you may have hit.
+info "Membangun image satu per satu (hemat memori)…"
+for svc in transliterate auth wiki quiz gateway frontend; do
+  info "  build: $svc"
+  $COMPOSE build "$svc"
+done
+
+info "Menjalankan stack (port 80)…"
+$COMPOSE up -d
 
 # ---------------------------------------------------------------------------
 # 3. Health check
