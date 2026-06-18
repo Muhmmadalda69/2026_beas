@@ -1,0 +1,256 @@
+@import "tailwindcss";
+
+/*
+  Béas — design tokens.
+  Style: "Nature Distilled" (warm, earthy heritage palette) paired with an
+  editorial serif/sans typography system. Colours are tuned for WCAG AA
+  contrast on the cream background.
+*/
+@theme {
+  --color-background: #f6f1e7; /* soft cream paper */
+  --color-surface: #fffdf8; /* card surface */
+  --color-surface-2: #f1e9d8; /* sunken panels */
+  --color-foreground: #2e2518; /* deep cocoa text */
+  --color-muted: #6c5d46; /* secondary text (AA on cream) */
+  --color-border: #e3d6bd; /* hairline borders */
+
+  --color-primary: #9a4a2a; /* deep terracotta — buttons, links */
+  --color-primary-hover: #823c21;
+  --color-primary-soft: #c67b5c; /* lighter terracotta accents */
+  --color-olive: #6b7b3c; /* secondary / success */
+  --color-gold: #b5651d; /* warm clay highlight */
+  --color-danger: #a83232;
+
+  --font-display: var(--font-playfair), Georgia, serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-aksara: var(--font-aksara), "Noto Sans Sundanese", serif;
+
+  --radius-card: 1rem;
+}
+
+:root {
+  --background: var(--color-background);
+  --foreground: var(--color-foreground);
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  /* Subtle paper grain for the heritage feel, drawn purely in CSS. */
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    rgba(120, 90, 50, 0.05) 1px,
+    transparent 0
+  );
+  background-size: 22px 22px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+/* Aksara Sunda glyphs render with the dedicated Unicode font. */
+.aksara {
+  font-family: var(--font-aksara);
+  line-height: 1.9;
+}
+
+/* Prose styling for rendered article HTML (also used inside the editor). */
+.prose-heritage h1 {
+  font-size: 1.85rem;
+  font-weight: 700;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  color: var(--color-foreground);
+}
+.prose-heritage h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  color: var(--color-foreground);
+}
+.prose-heritage h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+.prose-heritage p {
+  margin-bottom: 1rem;
+  color: var(--color-foreground);
+}
+.prose-heritage ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+.prose-heritage ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+.prose-heritage li {
+  margin-bottom: 0.35rem;
+}
+.prose-heritage blockquote {
+  border-left: 3px solid var(--color-primary-soft);
+  padding-left: 1rem;
+  margin: 1rem 0;
+  font-style: italic;
+  color: var(--color-muted);
+}
+.prose-heritage a {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+.prose-heritage mark {
+  background-color: color-mix(in srgb, var(--color-gold) 35%, transparent);
+  padding: 0 0.15em;
+  border-radius: 0.15em;
+}
+.prose-heritage code {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9em;
+  background-color: var(--color-surface-2);
+  padding: 0.1em 0.35em;
+  border-radius: 0.3em;
+}
+.prose-heritage pre {
+  background-color: #2e2518;
+  color: #f6f1e7;
+  padding: 1rem;
+  border-radius: 0.6rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+.prose-heritage pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+.prose-heritage hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1.5rem 0;
+}
+.prose-heritage img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.6rem;
+  margin: 1rem 0;
+}
+.prose-heritage table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.95em;
+}
+.prose-heritage th,
+.prose-heritage td {
+  border: 1px solid var(--color-border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+.prose-heritage th {
+  background-color: var(--color-surface-2);
+  font-weight: 600;
+}
+.prose-heritage strong {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+/* Shared form input shape used in admin forms. */
+.input {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-background);
+  padding: 0.625rem 0.875rem;
+  color: var(--color-foreground);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+/* Shared button shapes used across interactive client components. */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  background-color: var(--color-primary);
+  color: var(--color-surface);
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+}
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-foreground);
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.btn-ghost:hover:not(:disabled) {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* Respect reduced-motion preferences for all transitions/animations. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-up {
+  animation: fade-up 0.5s ease-out both;
+}

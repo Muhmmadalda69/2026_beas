@@ -1,0 +1,871 @@
+openapi: 3.1.0
+info:
+  title: Béas API
+  version: 1.0.0
+  description: >
+    REST API untuk aplikasi Béas (ensiklopedia, transliterasi, dan kuis
+    Aksara Sunda). Semua endpoint diakses melalui **gateway** pada satu origin
+    dengan prefix `/api/<layanan>`. Layanan internal: `auth`, `wiki`, `quiz`,
+    `translit`.
+
+
+    ## Konvensi
+
+
+    - Setiap respons sukses dibungkus `{"data": ...}`. Setiap error dibungkus
+      `{"error": "pesan"}`.
+
+    - Autentikasi memakai **JWT Bearer** (`Authorization: Bearer <token>`).
+      Token admin dan token pengguna memakai skema yang sama namun `role`
+      berbeda (`admin` vs `user`).
+
+    - Body permintaan menolak field tak dikenal dan dibatasi ukurannya.
+  contact:
+    name: Béas
+
+servers:
+  - url: http://localhost:8080
+    description: Gateway (pengembangan lokal)
+
+tags:
+  - name: Auth (Admin)
+    description: Autentikasi back-office.
+  - name: Auth (Pengguna)
+    description: Registrasi & login pemain kuis, termasuk OAuth Google.
+  - name: Wiki
+    description: Ensiklopedia artikel Aksara Sunda.
+  - name: Quiz
+    description: Level, soal, permainan kuis berwaktu, dan papan peringkat.
+  - name: Transliterasi
+    description: Konversi Latin → Aksara Sunda dan tabel aksara.
+  - name: Sistem
+    description: Health check.
+
+paths:
+  /healthz:
+    get:
+      tags: [Sistem]
+      summary: Health check gateway
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string, example: gateway }
+
+  /api/auth/login:
+    post:
+      tags: [Auth (Admin)]
+      summary: Login admin
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string, example: admin }
+                password: { type: string, format: password, example: admin12345 }
+      responses:
+        "200":
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/AdminAuthResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /api/auth/me:
+    get:
+      tags: [Auth (Admin)]
+      summary: Profil admin saat ini
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string, format: uuid }
+                      username: { type: string }
+                      role: { type: string, example: admin }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/auth/users/register:
+    post:
+      tags: [Auth (Pengguna)]
+      summary: Daftar pengguna baru (email + sandi)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, name, password]
+              properties:
+                email: { type: string, format: email }
+                name: { type: string, minLength: 2 }
+                password: { type: string, format: password, minLength: 8 }
+      responses:
+        "201":
+          description: Akun dibuat, token dikembalikan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/UserAuthResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/auth/users/login:
+    post:
+      tags: [Auth (Pengguna)]
+      summary: Login pengguna (email + sandi)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        "200":
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/UserAuthResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/auth/users/oauth:
+    post:
+      tags: [Auth (Pengguna)]
+      summary: Upsert pengguna dari identitas terverifikasi (internal)
+      description: >
+        Endpoint server-to-server yang dipanggil oleh frontend setelah
+        memverifikasi identitas Google. Membutuhkan header `X-Internal-Secret`
+        yang cocok dengan `INTERNAL_API_SECRET`. Tidak untuk dipanggil browser.
+      security: [{ internalSecret: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, sub, email]
+              properties:
+                provider: { type: string, example: google }
+                sub: { type: string, description: ID unik dari penyedia OAuth }
+                email: { type: string, format: email }
+                name: { type: string }
+      responses:
+        "200":
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/UserAuthResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/auth/users/me:
+    get:
+      tags: [Auth (Pengguna)]
+      summary: Profil pengguna saat ini
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string, format: uuid }
+                      name: { type: string }
+                      role: { type: string, example: user }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/wiki/articles:
+    get:
+      tags: [Wiki]
+      summary: Daftar artikel
+      security: []
+      parameters:
+        - { name: category, in: query, schema: { type: string }, description: Saring berdasarkan kategori }
+        - { name: q, in: query, schema: { type: string }, description: Cari pada judul/ringkasan }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Article" }
+    post:
+      tags: [Wiki]
+      summary: Buat artikel (admin)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ArticleInput" }
+      responses:
+        "201":
+          description: Dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Article" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/wiki/articles/{slug}:
+    get:
+      tags: [Wiki]
+      summary: Ambil artikel berdasarkan slug
+      security: []
+      parameters:
+        - { name: slug, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Article" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/wiki/articles/{id}:
+    put:
+      tags: [Wiki]
+      summary: Perbarui artikel (admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ArticleInput" }
+      responses:
+        "200":
+          description: Diperbarui
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Article" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Wiki]
+      summary: Hapus artikel (admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Terhapus }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/wiki/categories:
+    get:
+      tags: [Wiki]
+      summary: Daftar kategori unik
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { type: string }
+
+  /api/quiz/levels:
+    get:
+      tags: [Quiz]
+      summary: Daftar level
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Level" }
+    post:
+      tags: [Quiz]
+      summary: Buat level (admin)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LevelInput" }
+      responses:
+        "201":
+          description: Dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Level" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/quiz/levels/{id}:
+    get:
+      tags: [Quiz]
+      summary: Detail level
+      security: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Level" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Quiz]
+      summary: Perbarui level (admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LevelInput" }
+      responses:
+        "200":
+          description: Diperbarui
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Level" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Quiz]
+      summary: Hapus level beserta soalnya (admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Terhapus }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/quiz/levels/{id}/play:
+    post:
+      tags: [Quiz]
+      summary: Mulai sesi kuis (soal acak)
+      description: >
+        Mengembalikan subset soal teracak (Fisher–Yates) tanpa kunci jawaban,
+        beserta `session_id`. Autentikasi opsional: jika menyertakan token
+        pengguna, hasil submit akan tercatat di papan peringkat.
+      security: [{ bearerAuth: [] }, {}]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Sesi dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/PlaySession" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Level belum memiliki soal
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/quiz/submit:
+    post:
+      tags: [Quiz]
+      summary: Kirim jawaban & nilai
+      description: >
+        Penilaian sepenuhnya di server. Durasi diukur server (saat play →
+        submit) dan menjadi dasar bonus kecepatan. Autentikasi opsional;
+        attempt hanya dicatat ke leaderboard bila token pengguna disertakan.
+      security: [{ bearerAuth: [] }, {}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitRequest" }
+      responses:
+        "200":
+          description: Hasil penilaian
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/QuizResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Sesi sudah dikirim sebelumnya
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "410":
+          description: Sesi kedaluwarsa
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/quiz/leaderboard:
+    get:
+      tags: [Quiz]
+      summary: Papan peringkat
+      description: >
+        Peringkat dari jumlah poin akhir terbaik per level (akurasi + bonus
+        kecepatan). Seri dipecah oleh total waktu (lebih cepat unggul).
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/LeaderboardEntry" }
+
+  /api/quiz/levels/{id}/questions:
+    get:
+      tags: [Quiz]
+      summary: Daftar soal sebuah level, dengan kunci jawaban (admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Question" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [Quiz]
+      summary: Tambah soal ke level (admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuestionInput" }
+      responses:
+        "201":
+          description: Dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Question" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/quiz/questions/{id}:
+    put:
+      tags: [Quiz]
+      summary: Perbarui soal (admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuestionInput" }
+      responses:
+        "200":
+          description: Diperbarui
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Question" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Quiz]
+      summary: Hapus soal (admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Terhapus }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/translit/transliterate:
+    post:
+      tags: [Transliterasi]
+      summary: Konversi Latin → Aksara Sunda
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, maxLength: 5000, example: wilujeng sumping }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      input: { type: string, example: wilujeng sumping }
+                      aksara: { type: string, example: "ᮝᮤᮜᮥᮏᮨᮀ ᮞᮥᮙ᮪ᮕᮤᮀ" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "413":
+          description: Teks melebihi 5000 karakter
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/translit/chart:
+    get:
+      tags: [Transliterasi]
+      summary: Tabel aksara lengkap (untuk referensi/belajar)
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ChartGroup" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Token JWT admin atau pengguna: `Authorization: Bearer <token>`."
+    internalSecret:
+      type: apiKey
+      in: header
+      name: X-Internal-Secret
+      description: Secret bersama server-to-server (tidak untuk browser).
+
+  responses:
+    BadRequest:
+      description: Permintaan tidak valid
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Tidak terautentikasi / token tidak valid
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Tidak ditemukan
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Konflik (mis. data sudah ada)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    RateLimited:
+      description: Terlalu banyak permintaan
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string, example: invalid username or password }
+
+    AdminAuthResult:
+      type: object
+      properties:
+        token: { type: string }
+        expires_at: { type: string, format: date-time }
+        admin:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            username: { type: string }
+            role: { type: string, example: admin }
+            created_at: { type: string, format: date-time }
+
+    UserAuthResult:
+      type: object
+      properties:
+        token: { type: string }
+        expires_at: { type: string, format: date-time }
+        user: { $ref: "#/components/schemas/User" }
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        name: { type: string }
+        provider: { type: string, enum: [password, google] }
+        role: { type: string, example: user }
+        created_at: { type: string, format: date-time }
+
+    Article:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        title: { type: string }
+        title_aksara: { type: string }
+        category: { type: string }
+        summary: { type: string }
+        content: { type: string, description: "HTML (disanitasi saat ditampilkan) atau Markdown lama" }
+        read_minutes: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ArticleInput:
+      type: object
+      required: [title, category, content]
+      properties:
+        title: { type: string, minLength: 3 }
+        title_aksara: { type: string }
+        category: { type: string }
+        summary: { type: string }
+        content: { type: string, minLength: 10 }
+
+    Level:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: integer }
+        title: { type: string }
+        description: { type: string }
+        difficulty: { type: string, example: Pemula }
+        pass_score: { type: integer, description: "Persentase minimal lulus (0–100)" }
+        draw_count: { type: integer, description: "Jumlah soal yang ditarik tiap main" }
+        question_total: { type: integer }
+        created_at: { type: string, format: date-time }
+
+    LevelInput:
+      type: object
+      required: [number, title]
+      properties:
+        number: { type: integer, minimum: 1 }
+        title: { type: string, minLength: 3 }
+        description: { type: string }
+        difficulty: { type: string }
+        pass_score: { type: integer, minimum: 0, maximum: 100 }
+        draw_count: { type: integer, minimum: 0 }
+
+    Question:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        level_id: { type: string, format: uuid }
+        prompt: { type: string }
+        prompt_aksara: { type: string }
+        options:
+          type: array
+          items: { type: string }
+        correct_index: { type: integer, description: "Indeks jawaban benar (hanya untuk admin)" }
+        explanation: { type: string }
+        points: { type: integer }
+        created_at: { type: string, format: date-time }
+
+    QuestionInput:
+      type: object
+      required: [prompt, options, correct_index]
+      properties:
+        prompt: { type: string }
+        prompt_aksara: { type: string }
+        options:
+          type: array
+          minItems: 2
+          maxItems: 6
+          items: { type: string }
+        correct_index: { type: integer }
+        explanation: { type: string }
+        points: { type: integer, default: 10 }
+
+    PlayQuestion:
+      type: object
+      description: Soal yang ditampilkan ke pemain (tanpa kunci jawaban).
+      properties:
+        id: { type: string, format: uuid }
+        prompt: { type: string }
+        prompt_aksara: { type: string }
+        options:
+          type: array
+          items: { type: string }
+          description: Sudah diacak urutannya.
+        points: { type: integer }
+
+    PlaySession:
+      type: object
+      properties:
+        session_id: { type: string, format: uuid }
+        level: { $ref: "#/components/schemas/Level" }
+        questions:
+          type: array
+          items: { $ref: "#/components/schemas/PlayQuestion" }
+        expires_at: { type: string, format: date-time }
+
+    Answer:
+      type: object
+      properties:
+        question_id: { type: string, format: uuid }
+        answer: { type: string, description: "Teks opsi yang dipilih pemain" }
+
+    SubmitRequest:
+      type: object
+      required: [session_id, answers]
+      properties:
+        session_id: { type: string, format: uuid }
+        answers:
+          type: array
+          items: { $ref: "#/components/schemas/Answer" }
+
+    AnswerDetail:
+      type: object
+      properties:
+        question_id: { type: string, format: uuid }
+        prompt: { type: string }
+        your_answer: { type: string }
+        correct_answer: { type: string }
+        correct: { type: boolean }
+        explanation: { type: string }
+
+    QuizResult:
+      type: object
+      properties:
+        level_id: { type: string, format: uuid }
+        score: { type: integer, description: "Akurasi 0–100" }
+        points_earned: { type: integer }
+        points_total: { type: integer }
+        correct_count: { type: integer }
+        total: { type: integer }
+        passed: { type: boolean }
+        duration_seconds: { type: integer, description: "Diukur server" }
+        time_bonus: { type: integer, description: "Bonus poin kecepatan" }
+        final_points: { type: integer, description: "points_earned + time_bonus (untuk leaderboard)" }
+        details:
+          type: array
+          items: { $ref: "#/components/schemas/AnswerDetail" }
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank: { type: integer }
+        name: { type: string }
+        total_score: { type: integer, description: "Jumlah poin akhir terbaik per level" }
+        total_seconds: { type: integer, description: "Total waktu run terbaik (tie-breaker)" }
+        levels_cleared: { type: integer }
+        plays: { type: integer }
+
+    Glyph:
+      type: object
+      properties:
+        latin: { type: string }
+        aksara: { type: string }
+        name: { type: string }
+        example: { type: string }
+
+    ChartGroup:
+      type: object
+      properties:
+        key: { type: string }
+        title: { type: string }
+        description: { type: string }
+        glyphs:
+          type: array
+          items: { $ref: "#/components/schemas/Glyph" }

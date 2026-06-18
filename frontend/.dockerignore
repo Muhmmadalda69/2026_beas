@@ -1,0 +1,7 @@
+# Use the image's own Linux dependencies, not the host's.
+node_modules
+.next
+.git
+public/tinymce
+npm-debug.log*
+.env*.local

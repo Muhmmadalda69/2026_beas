@@ -1,0 +1,15 @@
+{
+  "name": "beas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Béas — dev orchestration (Postgres + 5 Go services + Next.js) in one command.",
+  "scripts": {
+    "setup": "npm install && npm --prefix frontend install",
+    "predev": "docker compose down && docker compose up -d postgres",
+    "dev": "concurrently -k -n translit,auth,wiki,quiz,gateway,web -c magenta,blue,green,yellow,cyan,white \"cd backend && go run github.com/air-verse/air@v1.62.0 -c .air/translit.toml\" \"cd backend && go run github.com/air-verse/air@v1.62.0 -c .air/auth.toml\" \"cd backend && go run github.com/air-verse/air@v1.62.0 -c .air/wiki.toml\" \"cd backend && go run github.com/air-verse/air@v1.62.0 -c .air/quiz.toml\" \"cd backend && go run github.com/air-verse/air@v1.62.0 -c .air/gateway.toml\" \"cd frontend && npm run dev\"",
+    "stop": "docker compose stop postgres"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}

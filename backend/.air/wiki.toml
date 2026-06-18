@@ -1,0 +1,12 @@
+# Live-reload config for the wiki service (used by `npm run dev`).
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/wiki.exe ./cmd/wiki"
+  bin = "tmp/wiki.exe"
+  delay = 800
+  include_ext = ["go"]
+  include_dir = ["cmd/wiki", "internal/wiki", "internal/platform"]
+  exclude_dir = ["tmp", ".air"]
+  stop_on_error = true

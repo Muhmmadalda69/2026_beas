@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Next.js build output and cache
+.next/
+out/
+build/
+
+# Go binaries and tools
+/backend/tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+bin/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TinyMCE self-hosted assets
+/frontend/public/tinymce/
+
+# IDE and OS files
+.idea/
+.vscode/
+*.suo
+*.ntvsca
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
