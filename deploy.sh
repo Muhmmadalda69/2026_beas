@@ -15,7 +15,6 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
 RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'; BLD=$'\033[1m'; RST=$'\033[0m'
 info() { echo "${BLD}==>${RST} $*"; }
 warn() { echo "${YEL}!  $*${RST}"; }
@@ -25,7 +24,22 @@ die()  { echo "${RED}✗  $*${RST}" >&2; exit 1; }
 # 0. Prerequisites
 # ---------------------------------------------------------------------------
 command -v docker >/dev/null 2>&1 || die "Docker tidak ditemukan. Install Docker dulu."
-docker compose version >/dev/null 2>&1 || die "Docker Compose v2 tidak ditemukan."
+
+# Use sudo automatically if the current user can't reach the Docker socket
+# (i.e. is not in the 'docker' group). DK is the docker command used everywhere.
+DK="docker"
+if ! docker info >/dev/null 2>&1; then
+  if command -v sudo >/dev/null 2>&1 && sudo docker info >/dev/null 2>&1; then
+    DK="sudo docker"
+    warn "User belum di grup docker — memakai sudo. Agar tak perlu sudo lagi:"
+    echo  "      sudo usermod -aG docker \$USER  &&  newgrp docker"
+  else
+    die "Tidak bisa akses Docker daemon. Jalankan: sudo bash deploy.sh"
+  fi
+fi
+$DK compose version >/dev/null 2>&1 || die "Docker Compose v2 tidak ditemukan."
+
+COMPOSE="$DK compose -f docker-compose.yml -f docker-compose.prod.yml"
 
 # Random secret generator (openssl preferred, /dev/urandom fallback).
 gen() {
@@ -108,13 +122,13 @@ fi
 # Reclaim disk if low: failed/previous builds leave large unused image layers &
 # build cache that can fill the disk (ENOSPC). Pruning unused data is safe — it
 # never touches named volumes (your database).
-docker_root=$(docker info --format '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)
+docker_root=$($DK info --format '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)
 avail_mb=$(df -Pm "$docker_root" 2>/dev/null | awk 'NR==2{print $4}' || echo 99999)
 if [ -n "$avail_mb" ] && [ "$avail_mb" -lt 6000 ]; then
   warn "Ruang disk Docker rendah (${avail_mb}MB di $docker_root). Membersihkan cache tak terpakai…"
-  docker container prune -f >/dev/null 2>&1 || true
-  docker image prune -af >/dev/null 2>&1 || true
-  docker builder prune -af >/dev/null 2>&1 || true
+  $DK container prune -f >/dev/null 2>&1 || true
+  $DK image prune -af >/dev/null 2>&1 || true
+  $DK builder prune -af >/dev/null 2>&1 || true
   avail_mb=$(df -Pm "$docker_root" 2>/dev/null | awk 'NR==2{print $4}' || echo 0)
   info "Disk Docker tersedia sekarang: ${avail_mb}MB"
   if [ "$avail_mb" -lt 4000 ]; then
