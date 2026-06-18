@@ -5,12 +5,14 @@ WORKDIR /src
 
 # Cache dependencies separately from source for faster rebuilds.
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod/ go mod download
 
 COPY . .
 ARG SERVICE
 RUN test -n "$SERVICE" || (echo "SERVICE build-arg is required" && exit 1)
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" \
+RUN --mount=type=cache,target=/go/pkg/mod/ \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" \
     -o /out/app ./cmd/${SERVICE}
 
 # Minimal runtime: alpine gives us wget for container healthchecks and a shell

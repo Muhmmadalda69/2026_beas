@@ -124,7 +124,7 @@ fi
 # never touches named volumes (your database).
 docker_root=$($DK info --format '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)
 avail_mb=$(df -Pm "$docker_root" 2>/dev/null | awk 'NR==2{print $4}' || echo 99999)
-if [ -n "$avail_mb" ] && [ "$avail_mb" -lt 6000 ]; then
+if [ -n "$avail_mb" ] && [ "$avail_mb" -lt 2000 ]; then
   warn "Ruang disk Docker rendah (${avail_mb}MB di $docker_root). Membersihkan cache tak terpakai…"
   $DK container prune -f >/dev/null 2>&1 || true
   $DK image prune -af >/dev/null 2>&1 || true
@@ -151,10 +151,21 @@ $COMPOSE up -d --remove-orphans
 # 3. Health check
 # ---------------------------------------------------------------------------
 info "Menunggu aplikasi siap…"
-ok=false
+# Probe with whatever HTTP client exists; "skip" means we can't verify locally.
+probe() {
+  if command -v curl >/dev/null 2>&1; then
+    curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://localhost/ 2>/dev/null || echo 000
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q -T 3 -O /dev/null http://localhost/ 2>/dev/null && echo 200 || echo 000
+  else
+    echo skip
+  fi
+}
+ok=false; skipped=false
 for _ in $(seq 1 40); do
-  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://localhost/ 2>/dev/null || echo 000)"
+  code="$(probe)"
   if [ "$code" = "200" ]; then ok=true; break; fi
+  if [ "$code" = "skip" ]; then skipped=true; break; fi
   sleep 3
 done
 
@@ -163,8 +174,12 @@ $COMPOSE ps
 echo
 if [ "$ok" = true ]; then
   echo "${GRN}${BLD}✓ Béas aktif di http://localhost (port 80)${RST}"
+elif [ "$skipped" = true ]; then
+  echo "${GRN}${BLD}✓ Stack berjalan.${RST} (curl/wget tak ada — tak bisa cek otomatis)"
+  echo "  Uji dari luar: buka http://<ip-server>/ (pastikan firewall/Security Group izinkan port 80)."
 else
-  warn "Aplikasi belum merespons di port 80. Cek log: $COMPOSE logs -f frontend gateway"
+  warn "Belum merespons di port 80. Jika container Up, cek firewall/Security Group port 80."
+  warn "Log: $COMPOSE logs -f frontend gateway"
 fi
 
 if [ -n "$GENERATED_ADMIN_PW" ]; then
