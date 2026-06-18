@@ -1,0 +1,36 @@
+# Production overrides for the Béas stack.
+# Use together with the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Differences from the dev base:
+#   - Only the frontend is published, on port 80 (the public entry point).
+#   - Postgres and the gateway are NOT exposed to the host (internal network only).
+#   - Every service restarts automatically.
+#
+# `!reset` removes the host port mappings inherited from the base file.
+
+services:
+  postgres:
+    restart: always
+    ports: !reset []
+
+  auth:
+    restart: always
+
+  wiki:
+    restart: always
+
+  quiz:
+    restart: always
+
+  transliterate:
+    restart: always
+
+  gateway:
+    restart: always
+    ports: !reset []
+
+  frontend:
+    restart: always
+    ports: !override
+      - "80:3000"

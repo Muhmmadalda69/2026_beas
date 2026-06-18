@@ -68,6 +68,35 @@ docker compose up --build
 - Gateway API: <http://localhost:8080>
 - Admin default: `admin` / `admin12345` (di <http://localhost:3000/admin>)
 
+### Deploy produksi (port 80)
+
+Di server, cukup satu perintah:
+
+```bash
+bash deploy.sh
+```
+
+`deploy.sh` akan:
+- membuat `.env` & **menghasilkan secret kuat** otomatis pada run pertama
+  (`JWT_SECRET`, `INTERNAL_API_SECRET`, `POSTGRES_PASSWORD`, `ADMIN_PASSWORD`),
+- build & menjalankan seluruh stack lewat `docker-compose.yml` +
+  `docker-compose.prod.yml`,
+- mengekspos **hanya frontend di port 80** (gateway & Postgres tetap internal,
+  tidak terbuka ke publik), dengan `restart: always`,
+- menunggu sampai sehat lalu mencetak **password superadmin** sekali.
+
+Akses: `http://<ip-atau-domain-server>/` · Admin: `/admin`.
+
+Catatan:
+- **HTTP vs HTTPS**: default `COOKIE_SECURE=false` agar login bekerja di port 80
+  (HTTP). Bila memasang TLS/HTTPS (mis. via reverse proxy), set
+  `COOKIE_SECURE=true` di `.env`.
+- **Google login**: isi `GOOGLE_CLIENT_ID`/`SECRET` dan ubah
+  `GOOGLE_REDIRECT_URI` menjadi `http://<domain>/api/auth/google/callback`
+  (samakan di Google Console), lalu `bash deploy.sh` lagi.
+- **CORS**: browser hanya berbicara dengan frontend (same-origin), jadi
+  `CORS_ORIGINS` tidak memengaruhi alur normal.
+
 ### Pengembangan lokal — satu perintah dengan hot-reload
 
 Sekali siapkan dependency:

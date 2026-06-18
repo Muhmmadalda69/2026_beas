@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { USER_TOKEN_COOKIE } from "./user";
+import { cookieSecure } from "./cookies";
 
 interface UserAuthResult {
   token: string;
@@ -12,7 +13,7 @@ export function withUserCookie(result: UserAuthResult): NextResponse {
   const res = NextResponse.json({ user: result.user });
   res.cookies.set(USER_TOKEN_COOKIE, result.token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: cookieSecure(),
     sameSite: "lax",
     path: "/",
     expires: new Date(result.expires_at),

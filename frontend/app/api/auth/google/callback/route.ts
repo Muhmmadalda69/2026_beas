@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { internalApiBase } from "@/lib/api";
 import { USER_TOKEN_COOKIE } from "@/lib/user";
+import { cookieSecure } from "@/lib/cookies";
 import type { UserAuthResult } from "@/lib/userAuth";
 
 // Handles Google's redirect: validates state, exchanges the code for tokens,
@@ -85,7 +86,7 @@ export async function GET(req: NextRequest) {
   const redirect = NextResponse.redirect(new URL(next, origin));
   redirect.cookies.set(USER_TOKEN_COOKIE, result.token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: cookieSecure(),
     sameSite: "lax",
     path: "/",
     expires: new Date(result.expires_at),

@@ -102,6 +102,8 @@ services:
       API_INTERNAL_URL: http://gateway:8080
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-internal-shared-secret-change-me}
+      # Set true only when serving over HTTPS (Secure cookies are dropped on HTTP).
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # Google OAuth (optional). Leave the client id/secret empty to hide the
       # "Masuk dengan Google" button. Set up credentials at
       # https://console.cloud.google.com and use the callback URL below.

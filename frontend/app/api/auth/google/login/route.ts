@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookieSecure } from "@/lib/cookies";
 
 // Starts the Google OAuth flow: sets a CSRF state cookie and redirects to
 // Google's consent screen. Disabled (404) when credentials are not configured.
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
   const res = NextResponse.redirect(authUrl.toString());
   const cookieOpts = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: cookieSecure(),
     sameSite: "lax" as const,
     path: "/",
     maxAge: 600,

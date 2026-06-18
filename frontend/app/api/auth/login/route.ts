@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverApi, ApiError } from "@/lib/api";
 import { TOKEN_COOKIE } from "@/lib/auth";
+import { cookieSecure } from "@/lib/cookies";
 import type { AdminUser } from "@/lib/types";
 
 interface LoginResult {
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
     const expires = new Date(result.expires_at);
     res.cookies.set(TOKEN_COOKIE, result.token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: cookieSecure(),
       sameSite: "lax",
       path: "/",
       expires,
