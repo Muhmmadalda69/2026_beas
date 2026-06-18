@@ -105,16 +105,33 @@ if [ "$total_mem_mb" -gt 0 ] && [ "$total_mem_mb" -lt 1800 ] && [ "$swap_mb" -lt
   echo  "      echo '/swapfile none swap sw 0 0' >> /etc/fstab"
 fi
 
+# Reclaim disk if low: failed/previous builds leave large unused image layers &
+# build cache that can fill the disk (ENOSPC). Pruning unused data is safe — it
+# never touches named volumes (your database).
+docker_root=$(docker info --format '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)
+avail_mb=$(df -Pm "$docker_root" 2>/dev/null | awk 'NR==2{print $4}' || echo 99999)
+if [ -n "$avail_mb" ] && [ "$avail_mb" -lt 6000 ]; then
+  warn "Ruang disk Docker rendah (${avail_mb}MB di $docker_root). Membersihkan cache tak terpakai…"
+  docker container prune -f >/dev/null 2>&1 || true
+  docker image prune -af >/dev/null 2>&1 || true
+  docker builder prune -af >/dev/null 2>&1 || true
+  avail_mb=$(df -Pm "$docker_root" 2>/dev/null | awk 'NR==2{print $4}' || echo 0)
+  info "Disk Docker tersedia sekarang: ${avail_mb}MB"
+  if [ "$avail_mb" -lt 4000 ]; then
+    warn "Masih < 4GB. Build (terutama Next.js) butuh beberapa GB sementara — pertimbangkan menambah disk."
+  fi
+fi
+
 # Build images one at a time so only a single compiler runs at peak — this is
 # what prevents the parallel-build OOM you may have hit.
 info "Membangun image satu per satu (hemat memori)…"
-for svc in transliterate auth wiki quiz gateway frontend; do
+for svc in postgres transliterate auth wiki quiz gateway frontend; do
   info "  build: $svc"
   $COMPOSE build "$svc"
 done
 
 info "Menjalankan stack (port 80)…"
-$COMPOSE up -d
+$COMPOSE up -d --remove-orphans
 
 # ---------------------------------------------------------------------------
 # 3. Health check
