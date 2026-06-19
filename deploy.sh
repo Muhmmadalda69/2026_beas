@@ -145,7 +145,15 @@ for svc in postgres transliterate auth wiki quiz gateway frontend; do
 done
 
 info "Menjalankan stack (port 80)…"
-$COMPOSE up -d --remove-orphans
+if ! $COMPOSE up -d --remove-orphans; then
+  # A container can occasionally get stuck stopping ("permission denied").
+  # The correct, safe remedy is restarting the Docker daemon (it also rebuilds
+  # netfilter rules) — never pkill containerd-shim. Then retry once.
+  warn "Start gagal (kemungkinan container macet). Restart Docker daemon & coba lagi…"
+  sudo systemctl restart docker 2>/dev/null || systemctl restart docker 2>/dev/null || true
+  sleep 5
+  $COMPOSE up -d --remove-orphans
+fi
 
 # ---------------------------------------------------------------------------
 # 3. Health check

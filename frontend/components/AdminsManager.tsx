@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { clientGw, ApiError } from "@/lib/api";
 import type { AdminAccount } from "@/lib/types";
 import { PlusIcon, TrashIcon, ShieldIcon } from "@/components/icons";
+import { Skeleton } from "@/components/Skeleton";
 
 const roleLabel: Record<string, string> = {
   superadmin: "Superadmin",
@@ -16,6 +17,7 @@ export default function AdminsManager({
   currentUsername: string;
 }) {
   const [admins, setAdmins] = useState<AdminAccount[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -26,6 +28,8 @@ export default function AdminsManager({
       setAdmins(await clientGw<AdminAccount[]>("auth/admins"));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gagal memuat admin.");
+    } finally {
+      setLoaded(true);
     }
   }, []);
 
@@ -86,6 +90,21 @@ export default function AdminsManager({
       )}
 
       <div className="mt-6 space-y-3">
+        {!loaded &&
+          Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              role="status"
+              aria-busy="true"
+              className="flex items-center gap-3 rounded-xl border border-border bg-surface p-4"
+            >
+              <Skeleton className="h-9 w-9 rounded-lg" />
+              <div className="flex-1">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="mt-2 h-3 w-16" />
+              </div>
+            </div>
+          ))}
         {admins.map((a) => (
           <div
             key={a.id}

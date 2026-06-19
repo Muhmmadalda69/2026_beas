@@ -97,6 +97,56 @@ Catatan:
 - **CORS**: browser hanya berbicara dengan frontend (same-origin), jadi
   `CORS_ORIGINS` tidak memengaruhi alur normal.
 
+### Operasi & Troubleshooting (produksi)
+
+**Deploy ulang / update kode** — cukup ulangi:
+```bash
+git pull && bash deploy.sh
+```
+`deploy.sh` aman dijalankan berkali-kali (idempoten). Sekali siapkan agar tak perlu sudo:
+```bash
+sudo usermod -aG docker $USER && newgrp docker
+sudo systemctl enable docker     # agar stack ikut hidup setelah server reboot
+```
+
+**Password admin produksi** — ada di file `.env` pada baris `ADMIN_PASSWORD`:
+```bash
+grep ADMIN_PASSWORD .env
+```
+Ini adalah password **superadmin awal** (`username: admin`) yang di-seed saat
+database pertama kali dibuat. Setelah login pertama, sebaiknya buat akun
+superadmin baru di **Admin → Akun & Akses** lalu hapus akun lama, atau reset
+(lihat di bawah). Mengubah `ADMIN_PASSWORD` di `.env` **tidak** mengubah akun
+yang sudah ada (seed hanya berjalan saat DB kosong).
+
+**Lupa / reset password admin:**
+```bash
+DC="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+# 1) hapus akun admin lama
+$DC exec postgres psql -U galuh -d galuh_auth -c "DELETE FROM admins WHERE username='admin';"
+# 2) set password baru di .env (ADMIN_PASSWORD=...), lalu seed ulang
+$DC up -d --force-recreate auth
+# auth akan membuat ulang superadmin 'admin' dengan ADMIN_PASSWORD dari .env
+```
+
+**Container nyangkut / "cannot stop container: permission denied":**
+Cukup restart daemon Docker — ini membersihkan container macet **dan** membangun
+ulang aturan jaringan dengan benar:
+```bash
+sudo systemctl restart docker
+bash deploy.sh
+```
+> ⚠️ **JANGAN** pakai `pkill containerd-shim` atau `systemctl restart apparmor`.
+> Mematikan shim secara paksa merusak aturan forwarding netfilter Docker
+> (FORWARD policy `drop` tanpa rule accept) sehingga port 80 jadi tak bisa
+> diakses dari luar walau container hidup. `systemctl restart docker` adalah
+> satu-satunya pemulihan yang Anda butuhkan.
+
+**Web tak bisa diakses dari luar padahal `curl http://127.0.0.1/` = 200:**
+Berurutan dari yang paling sering: (1) **Security Group** belum izinkan inbound
+TCP 80 pada SG yang **terpasang** ke instance; (2) **Network ACL** subnet; (3)
+aturan **FORWARD** netfilter host tercecer → `sudo systemctl restart docker`.
+
 ### Pengembangan lokal — satu perintah dengan hot-reload
 
 Sekali siapkan dependency:

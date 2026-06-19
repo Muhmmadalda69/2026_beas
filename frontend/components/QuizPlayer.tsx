@@ -5,6 +5,7 @@ import Link from "next/link";
 import { userGw, ApiError } from "@/lib/api";
 import type { PlaySession, QuizResult } from "@/lib/types";
 import { CheckIcon, XIcon, ArrowRightIcon, ClockIcon } from "@/components/icons";
+import { Skeleton, SkeletonScreen } from "@/components/Skeleton";
 
 function formatTime(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
@@ -68,10 +69,10 @@ export default function QuizPlayer({ levelId }: { levelId: string }) {
 
   useEffect(() => {
     start();
-  }, [start]);
+  }, [levelId]);
 
   if (phase === "loading") {
-    return <CenterCard>Memuat soal…</CenterCard>;
+    return <QuizSkeleton />;
   }
 
   if (phase === "error") {
@@ -289,6 +290,39 @@ function CenterCard({ children }: { children: React.ReactNode }) {
         {children}
       </div>
     </div>
+  );
+}
+
+// Mirrors the playing layout so the screen does not jump when the session loads.
+function QuizSkeleton() {
+  return (
+    <SkeletonScreen
+      label="Memuat soal…"
+      className="mx-auto max-w-2xl px-4 py-12 sm:px-6"
+    >
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-4 w-16" />
+        <Skeleton className="h-4 w-28" />
+      </div>
+      <Skeleton className="mt-3 h-2 w-full rounded-full" />
+
+      <Skeleton className="mt-6 h-4 w-40" />
+
+      <div className="mt-4 rounded-2xl border border-border bg-surface p-6">
+        <Skeleton className="h-6 w-3/4" />
+        <Skeleton className="mt-3 h-10 w-1/2" />
+        <div className="mt-6 grid gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full rounded-xl" />
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-6 flex items-center justify-between">
+        <Skeleton className="h-10 w-28 rounded-full" />
+        <Skeleton className="h-10 w-32 rounded-full" />
+      </div>
+    </SkeletonScreen>
   );
 }
 

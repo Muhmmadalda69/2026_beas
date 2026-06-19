@@ -6,6 +6,7 @@ import { renderMarkdown } from "@/lib/markdown";
 import type { Article, ArticleInput } from "@/lib/types";
 import { PlusIcon, EditIcon, TrashIcon, LanguagesIcon } from "@/components/icons";
 import RichTextEditor from "@/components/RichTextEditor";
+import { Skeleton } from "@/components/Skeleton";
 
 const empty: ArticleInput = {
   title: "",
@@ -17,6 +18,7 @@ const empty: ArticleInput = {
 
 export default function AdminWikiPage() {
   const [articles, setArticles] = useState<Article[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ArticleInput>(empty);
   const [showForm, setShowForm] = useState(false);
@@ -28,6 +30,8 @@ export default function AdminWikiPage() {
       setArticles(await clientGw<Article[]>("wiki/articles"));
     } catch {
       setError("Gagal memuat artikel.");
+    } finally {
+      setLoaded(true);
     }
   }, []);
 
@@ -115,7 +119,11 @@ export default function AdminWikiPage() {
           <h1 className="font-display text-3xl font-bold text-foreground">
             Ensiklopedia
           </h1>
-          <p className="mt-1 text-muted">{articles.length} artikel</p>
+          {loaded ? (
+            <p className="mt-1 text-muted">{articles.length} artikel</p>
+          ) : (
+            <Skeleton className="mt-2 h-4 w-20" />
+          )}
         </div>
         <button onClick={openCreate} className="btn-primary">
           <PlusIcon className="h-4 w-4" /> Artikel Baru
@@ -129,6 +137,25 @@ export default function AdminWikiPage() {
       )}
 
       <div className="mt-6 space-y-3">
+        {!loaded &&
+          Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              role="status"
+              aria-busy="true"
+              className="flex items-center justify-between rounded-xl border border-border bg-surface p-4"
+            >
+              <div className="min-w-0 flex-1">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="mt-2 h-4 w-48 max-w-full" />
+                <Skeleton className="mt-2 h-5 w-32" />
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <Skeleton className="h-9 w-9 rounded-lg" />
+                <Skeleton className="h-9 w-9 rounded-lg" />
+              </div>
+            </div>
+          ))}
         {articles.map((a) => (
           <div
             key={a.id}

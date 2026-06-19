@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { clientGw } from "@/lib/api";
 import { CheckIcon, LanguagesIcon } from "@/components/icons";
+import { Skeleton } from "@/components/Skeleton";
 
 interface TranslitResponse {
   input: string;
@@ -49,9 +50,23 @@ export default function TransliterasiPage() {
 
   const copy = async () => {
     if (!aksara) return;
-    await navigator.clipboard.writeText(aksara);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(aksara);
+      } else {
+        // Fallback untuk Safari lama
+        const textarea = document.createElement("textarea");
+        textarea.value = aksara;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Gagal copy, tapi user masih bisa manual copy
+    }
   };
 
   return (
@@ -126,14 +141,25 @@ export default function TransliterasiPage() {
           <div className="mt-3 min-h-[180px] rounded-xl border border-border bg-background p-4">
             {error ? (
               <p className="text-danger">{error}</p>
+            ) : loading && !aksara ? (
+              // First-time conversion: show shimmering lines. On later keystrokes
+              // we keep the previous result (dimmed) instead, to avoid flicker.
+              <div role="status" aria-busy="true" className="space-y-3">
+                <span className="sr-only">Memproses…</span>
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-4/5" />
+                <Skeleton className="h-9 w-2/3" />
+              </div>
             ) : aksara ? (
-              <p className="aksara text-4xl leading-relaxed text-foreground break-words">
+              <p
+                className={`aksara text-4xl leading-relaxed text-foreground break-words transition-opacity ${
+                  loading ? "opacity-50" : "opacity-100"
+                }`}
+              >
                 {aksara}
               </p>
             ) : (
-              <p className="text-muted">
-                {loading ? "Memproses…" : "Hasil akan tampil di sini."}
-              </p>
+              <p className="text-muted">Hasil akan tampil di sini.</p>
             )}
           </div>
         </div>

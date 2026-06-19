@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { clientGw, ApiError } from "@/lib/api";
 import type { Level, LevelInput, Question, QuestionInput } from "@/lib/types";
 import { PlusIcon, EditIcon, TrashIcon } from "@/components/icons";
+import { Skeleton } from "@/components/Skeleton";
 
 const emptyLevel: LevelInput = {
   number: 1,
@@ -25,8 +26,10 @@ const emptyQuestion: QuestionInput = {
 
 export default function AdminKuisPage() {
   const [levels, setLevels] = useState<Level[]>([]);
+  const [levelsLoaded, setLevelsLoaded] = useState(false);
   const [selected, setSelected] = useState<Level | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
   const [error, setError] = useState("");
 
   // Level modal
@@ -46,14 +49,19 @@ export default function AdminKuisPage() {
     } catch {
       setError("Gagal memuat level.");
       return [];
+    } finally {
+      setLevelsLoaded(true);
     }
   }, []);
 
   const loadQuestions = useCallback(async (levelId: string) => {
+    setQuestionsLoading(true);
     try {
       setQuestions(await clientGw<Question[]>(`quiz/levels/${levelId}/questions`));
     } catch {
       setError("Gagal memuat soal.");
+    } finally {
+      setQuestionsLoading(false);
     }
   }, []);
 
@@ -185,6 +193,19 @@ export default function AdminKuisPage() {
       <div className="mt-6 grid gap-6 md:grid-cols-[300px_1fr]">
         {/* Levels list */}
         <div className="space-y-3">
+          {!levelsLoaded &&
+            Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                role="status"
+                aria-busy="true"
+                className="rounded-xl border border-border bg-surface p-4"
+              >
+                <Skeleton className="h-3 w-28" />
+                <Skeleton className="mt-2 h-4 w-40 max-w-full" />
+                <Skeleton className="mt-2 h-3 w-32" />
+              </div>
+            ))}
           {levels.map((l) => (
             <div
               key={l.id}
@@ -260,10 +281,27 @@ export default function AdminKuisPage() {
               </div>
 
               <div className="mt-4 space-y-3">
-                {questions.length === 0 && (
+                {questionsLoading &&
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div
+                      key={i}
+                      role="status"
+                      aria-busy="true"
+                      className="rounded-xl border border-border bg-surface p-4"
+                    >
+                      <Skeleton className="h-4 w-3/4" />
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Skeleton className="h-7 w-16 rounded-lg" />
+                        <Skeleton className="h-7 w-16 rounded-lg" />
+                        <Skeleton className="h-7 w-16 rounded-lg" />
+                      </div>
+                    </div>
+                  ))}
+                {!questionsLoading && questions.length === 0 && (
                   <p className="text-sm text-muted">Belum ada soal.</p>
                 )}
-                {questions.map((q, idx) => (
+                {!questionsLoading &&
+                  questions.map((q, idx) => (
                   <div
                     key={q.id}
                     className="rounded-xl border border-border bg-surface p-4"
