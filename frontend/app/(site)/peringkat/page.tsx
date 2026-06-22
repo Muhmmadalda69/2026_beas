@@ -3,6 +3,7 @@ import Link from "next/link";
 import { serverApi } from "@/lib/api";
 import { getCurrentUser } from "@/lib/user";
 import type { LeaderboardEntry } from "@/lib/types";
+import Reveal from "@/components/motion/Reveal";
 
 export const metadata: Metadata = {
   title: "Papan Peringkat",
@@ -69,30 +70,33 @@ export default async function PeringkatPage() {
       ) : (
         <ol className="mt-8 space-y-2">
           {entries.map((e) => (
-            <li
-              key={e.rank}
-              className="flex items-center gap-4 rounded-xl border border-border bg-surface p-4"
-            >
-              <span
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-display text-lg font-bold ${
-                  medal[e.rank - 1] ?? "bg-surface-2 text-muted"
-                }`}
-              >
-                {e.rank}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold text-foreground">{e.name}</p>
-                <p className="text-xs text-muted">
-                  {e.levels_cleared} level lulus · {e.plays} kali main · ⏱{" "}
-                  {formatDuration(e.total_seconds)}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="font-display text-2xl font-bold text-primary tabular-nums">
-                  {e.total_score}
-                </p>
-                <p className="text-xs text-muted">poin</p>
-              </div>
+            <li key={e.rank}>
+              <Reveal delay={Math.min(e.rank - 1, 10) * 0.05}>
+                <div className="flex items-center gap-4 rounded-xl border border-border bg-surface p-4 hover-depth">
+                  <span
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-display text-lg font-bold ${
+                      medal[e.rank - 1] ?? "bg-surface-2 text-muted"
+                    } ${e.rank <= 3 ? "glow-primary" : ""}`}
+                  >
+                    {e.rank}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-foreground">
+                      {e.name}
+                    </p>
+                    <p className="text-xs text-muted">
+                      {e.levels_cleared} level lulus · {e.plays} kali main · ⏱{" "}
+                      {formatDuration(e.total_seconds)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-display text-2xl font-bold text-primary tabular-nums">
+                      {e.total_score}
+                    </p>
+                    <p className="text-xs text-muted">poin</p>
+                  </div>
+                </div>
+              </Reveal>
             </li>
           ))}
         </ol>
