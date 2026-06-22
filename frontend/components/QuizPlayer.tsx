@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { userGw, ApiError } from "@/lib/api";
 import type { PlaySession, QuizResult } from "@/lib/types";
 import { CheckIcon, XIcon, ArrowRightIcon, ClockIcon } from "@/components/icons";
@@ -25,6 +26,7 @@ export default function QuizPlayer({ levelId }: { levelId: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const reduced = useReducedMotion();
 
   // Live stopwatch while playing (cosmetic; the server measures the official
   // time). Resets when a new session starts, stops when the quiz ends.
@@ -175,8 +177,17 @@ export default function QuizPlayer({ levelId }: { levelId: string }) {
         {session.level.title}
       </h2>
 
-      <div className="mt-4 rounded-2xl border border-border bg-surface p-6">
-        <p className="text-xl font-medium text-foreground">{q.prompt}</p>
+      <div className="scene mt-4">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={q.id}
+            initial={reduced ? { opacity: 0 } : { opacity: 0, x: 40, rotateY: 8 }}
+            animate={reduced ? { opacity: 1 } : { opacity: 1, x: 0, rotateY: 0 }}
+            exit={reduced ? { opacity: 0 } : { opacity: 0, x: -40, rotateY: -8 }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            className="preserve-3d rounded-2xl border border-border bg-surface p-6"
+          >
+            <p className="text-xl font-medium text-foreground">{q.prompt}</p>
         {q.prompt_aksara && (
           <p className="aksara mt-3 text-4xl text-primary-soft">
             {q.prompt_aksara}
@@ -210,7 +221,9 @@ export default function QuizPlayer({ levelId }: { levelId: string }) {
               </button>
             );
           })}
-        </div>
+            </div>
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       <div className="mt-6 flex items-center justify-between">
@@ -335,9 +348,13 @@ function ResultView({
   onReplay: () => void;
   loggedIn: boolean | null;
 }) {
+  const reduced = useReducedMotion();
   return (
     <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
-      <div
+      <motion.div
+        initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
         className={`rounded-2xl border p-8 text-center ${
           result.passed
             ? "border-olive/40 bg-olive/5"
@@ -395,7 +412,7 @@ function ResultView({
             </Link>
           </p>
         ) : null}
-      </div>
+      </motion.div>
 
       <h3 className="mt-10 font-display text-xl font-semibold text-foreground">
         Pembahasan

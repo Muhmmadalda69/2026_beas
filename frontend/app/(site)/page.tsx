@@ -8,6 +8,10 @@ import {
   PuzzleIcon,
   FeatherIcon,
 } from "@/components/icons";
+import Reveal from "@/components/motion/Reveal";
+import TiltCard from "@/components/motion/TiltCard";
+import Parallax from "@/components/motion/Parallax";
+import FloatLayer from "@/components/motion/FloatLayer";
 
 async function safe<T>(p: Promise<T>, fallback: T): Promise<T> {
   try {
@@ -56,11 +60,24 @@ export default async function HomePage() {
 
   return (
     <div>
-      {/* Hero */}
+      {/* Hero — layered parallax stage */}
       <section className="relative overflow-hidden">
+        {/* Decorative depth layers (behind content, non-interactive) */}
+        <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden>
+          <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
+          <div className="absolute -right-16 bottom-0 h-72 w-72 rounded-full bg-olive/10 blur-3xl" />
+          <Parallax distance={70} className="absolute right-2 top-6 sm:right-10">
+            <FloatLayer>
+              <span className="aksara select-none text-[14rem] leading-none text-primary/5 sm:text-[20rem]">
+                ᮞ
+              </span>
+            </FloatLayer>
+          </Parallax>
+        </div>
+
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 sm:px-6 md:grid-cols-2 md:py-24">
-          <div className="animate-fade-up">
-            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-primary">
+          <Reveal>
+            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/80 px-3 py-1 text-xs font-medium text-primary backdrop-blur-sm">
               <span className="aksara text-sm">ᮃᮊ᮪ᮞᮛ ᮞᮥᮔ᮪ᮓ</span>
               Warisan Budaya Nusantara
             </span>
@@ -75,77 +92,90 @@ export default async function HomePage() {
             <div className="mt-7 flex flex-wrap gap-3">
               <Link
                 href="/transliterasi"
-                className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-surface transition-colors hover:bg-primary-hover cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-surface transition-all hover:bg-primary-hover hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
               >
                 Coba Transliterasi
                 <ArrowRightIcon className="h-4 w-4" />
               </Link>
               <Link
                 href="/kuis"
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:border-primary hover:text-primary cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-6 py-3 text-sm font-semibold text-foreground transition-all hover:border-primary hover:text-primary hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
               >
                 Mainkan Kuis
               </Link>
             </div>
-          </div>
+          </Reveal>
 
-          {/* Decorative aksara plate */}
-          <div className="animate-fade-up rounded-2xl border border-border bg-surface p-8 shadow-[0_20px_60px_-30px_rgba(120,70,30,0.45)]">
-            <p className="text-center text-sm font-medium uppercase tracking-widest text-muted">
-              Aksara Ngalagena
-            </p>
-            <div className="mt-5 grid grid-cols-4 gap-3">
-              {ngalagena.length > 0
-                ? ngalagena.map((g) => (
+          {/* Decorative aksara plate — 3D tilt with glyph tiles that lift */}
+          <Reveal delay={0.12} y={28}>
+            <TiltCard
+              max={8}
+              scale={1.01}
+              className="scene rounded-2xl border border-border bg-surface p-8 depth-shadow-lg"
+            >
+              <div className="preserve-3d">
+                <p className="text-center text-sm font-medium uppercase tracking-widest text-muted">
+                  Aksara Ngalagena
+                </p>
+                <div className="preserve-3d mt-5 grid grid-cols-4 gap-3">
+                  {(ngalagena.length > 0
+                    ? ngalagena.map((g) => ({ aksara: g.aksara, latin: g.latin }))
+                    : "ᮊ ᮌ ᮍ ᮎ ᮏ ᮑ ᮒ ᮓ"
+                        .split(" ")
+                        .map((c) => ({ aksara: c, latin: "" }))
+                  ).map((g, i) => (
                     <div
-                      key={g.aksara}
-                      className="flex flex-col items-center rounded-xl bg-surface-2 py-4"
+                      key={`${g.aksara}-${i}`}
+                      className="preserve-3d flex flex-col items-center rounded-xl bg-surface-2 py-4 transition-transform duration-300 hover:[transform:translateZ(34px)_scale(1.06)] hover:bg-primary/10"
                     >
                       <span className="aksara text-3xl text-foreground">
                         {g.aksara}
                       </span>
-                      <span className="mt-1 text-xs text-muted">{g.latin}</span>
+                      {g.latin && (
+                        <span className="mt-1 text-xs text-muted">
+                          {g.latin}
+                        </span>
+                      )}
                     </div>
-                  ))
-                : "ᮊ ᮌ ᮍ ᮎ ᮏ ᮑ ᮒ ᮓ"
-                    .split(" ")
-                    .map((c, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-center rounded-xl bg-surface-2 py-4 aksara text-3xl"
-                      >
-                        {c}
-                      </div>
-                    ))}
-            </div>
-          </div>
+                  ))}
+                </div>
+              </div>
+            </TiltCard>
+          </Reveal>
         </div>
       </section>
 
       {/* Features */}
       <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <h2 className="font-display text-2xl font-semibold text-foreground">
-          Empat cara menjelajah
-        </h2>
+        <Reveal>
+          <h2 className="font-display text-2xl font-semibold text-foreground">
+            Empat cara menjelajah
+          </h2>
+        </Reveal>
         <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {features.map(({ href, title, desc, Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className="group rounded-2xl border border-border bg-surface p-6 transition-all hover:-translate-y-0.5 hover:border-primary-soft hover:shadow-lg cursor-pointer"
-            >
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Icon className="h-6 w-6" />
-              </span>
-              <h3 className="mt-4 font-display text-lg font-semibold text-foreground">
-                {title}
-              </h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-muted">{desc}</p>
-              <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary">
-                Buka
-                <ArrowRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </span>
-            </Link>
+          {features.map(({ href, title, desc, Icon }, i) => (
+            <Reveal key={href} delay={i * 0.08} className="h-full">
+              <TiltCard max={7} className="h-full">
+                <Link
+                  href={href}
+                  className="group flex h-full flex-col rounded-2xl border border-border bg-surface p-6 hover-depth hover:border-primary-soft cursor-pointer"
+                >
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Icon className="h-6 w-6" />
+                  </span>
+                  <h3 className="mt-4 font-display text-lg font-semibold text-foreground">
+                    {title}
+                  </h3>
+                  <p className="mt-1.5 flex-1 text-sm leading-relaxed text-muted">
+                    {desc}
+                  </p>
+                  <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary">
+                    Buka
+                    <ArrowRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </span>
+                </Link>
+              </TiltCard>
+            </Reveal>
           ))}
         </div>
       </section>
@@ -153,39 +183,44 @@ export default async function HomePage() {
       {/* Featured articles */}
       {featured.length > 0 && (
         <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-          <div className="flex items-end justify-between">
-            <h2 className="font-display text-2xl font-semibold text-foreground">
-              Dari Ensiklopedia
-            </h2>
-            <Link
-              href="/wiki"
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Lihat semua
-            </Link>
-          </div>
-          <div className="mt-6 grid gap-5 md:grid-cols-3">
-            {featured.map((a) => (
+          <Reveal>
+            <div className="flex items-end justify-between">
+              <h2 className="font-display text-2xl font-semibold text-foreground">
+                Dari Ensiklopedia
+              </h2>
               <Link
-                key={a.id}
-                href={`/wiki/${a.slug}`}
-                className="rounded-2xl border border-border bg-surface p-6 transition-all hover:-translate-y-0.5 hover:shadow-lg cursor-pointer"
+                href="/wiki"
+                className="text-sm font-medium text-primary hover:underline"
               >
-                <span className="text-xs font-semibold uppercase tracking-wider text-gold">
-                  {a.category}
-                </span>
-                <h3 className="mt-2 font-display text-lg font-semibold text-foreground">
-                  {a.title}
-                </h3>
-                {a.title_aksara && (
-                  <p className="aksara mt-1 text-xl text-primary-soft">
-                    {a.title_aksara}
-                  </p>
-                )}
-                <p className="mt-2 line-clamp-2 text-sm text-muted">
-                  {a.summary}
-                </p>
+                Lihat semua
               </Link>
+            </div>
+          </Reveal>
+          <div className="mt-6 grid gap-5 md:grid-cols-3">
+            {featured.map((a, i) => (
+              <Reveal key={a.id} delay={i * 0.08} className="h-full">
+                <TiltCard max={6} className="h-full">
+                  <Link
+                    href={`/wiki/${a.slug}`}
+                    className="flex h-full flex-col rounded-2xl border border-border bg-surface p-6 hover-depth hover:border-primary-soft cursor-pointer"
+                  >
+                    <span className="text-xs font-semibold uppercase tracking-wider text-gold">
+                      {a.category}
+                    </span>
+                    <h3 className="mt-2 font-display text-lg font-semibold text-foreground">
+                      {a.title}
+                    </h3>
+                    {a.title_aksara && (
+                      <p className="aksara mt-1 text-xl text-primary-soft">
+                        {a.title_aksara}
+                      </p>
+                    )}
+                    <p className="mt-2 line-clamp-2 text-sm text-muted">
+                      {a.summary}
+                    </p>
+                  </Link>
+                </TiltCard>
+              </Reveal>
             ))}
           </div>
         </section>
