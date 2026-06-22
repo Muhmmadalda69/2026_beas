@@ -43,3 +43,7 @@ pnpm-debug.log*
 *.swo
 .DS_Store
 Thumbs.db
+
+backend/deploy/init-db.sql
+deploy.sh
+frontend/package-lock.json
