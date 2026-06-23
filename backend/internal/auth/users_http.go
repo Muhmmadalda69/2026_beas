@@ -14,12 +14,19 @@ import (
 type UserHandler struct {
 	svc            *UserService
 	internalSecret string
+	googleClientID string
 }
 
 // NewUserHandler builds the user handler. internalSecret guards the OAuth
 // upsert endpoint so only the trusted frontend (server-to-server) may call it.
-func NewUserHandler(svc *UserService, internalSecret string) *UserHandler {
-	return &UserHandler{svc: svc, internalSecret: internalSecret}
+// googleClientID is the OAuth client ID accepted as the audience of mobile
+// Google id_tokens (reuse the existing web client ID).
+func NewUserHandler(svc *UserService, internalSecret, googleClientID string) *UserHandler {
+	return &UserHandler{
+		svc:            svc,
+		internalSecret: internalSecret,
+		googleClientID: googleClientID,
+	}
 }
 
 // Routes registers user auth routes.
@@ -27,6 +34,7 @@ func (h *UserHandler) Routes(mux *http.ServeMux, authMW middleware.Middleware) {
 	mux.HandleFunc("POST /users/register", h.register)
 	mux.HandleFunc("POST /users/login", h.login)
 	mux.HandleFunc("POST /users/oauth", h.oauth)
+	mux.HandleFunc("POST /users/google", h.google)
 	mux.Handle("GET /users/me", authMW(http.HandlerFunc(h.me)))
 }
 
@@ -88,6 +96,39 @@ func (h *UserHandler) oauth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res, err := h.svc.OAuthUpsert(r.Context(), strings.ToLower(req.Provider), req.Sub, req.Email, req.Name)
+	if h.writeErr(w, err) {
+		return
+	}
+	httpx.OK(w, res)
+}
+
+type googleRequest struct {
+	IDToken string `json:"id_token"`
+}
+
+// google verifies a Google id_token (obtained by the mobile app via
+// google_sign_in) directly with Google, then upserts the user. No shared secret
+// is needed, so it is safe to call from a public client.
+func (h *UserHandler) google(w http.ResponseWriter, r *http.Request) {
+	var req googleRequest
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if strings.TrimSpace(req.IDToken) == "" {
+		httpx.Error(w, http.StatusBadRequest, "id_token wajib diisi")
+		return
+	}
+	identity, err := verifyGoogleIDToken(r.Context(), req.IDToken, h.googleClientID)
+	if err != nil {
+		if errors.Is(err, errGoogleNotConfigured) {
+			httpx.Error(w, http.StatusServiceUnavailable, "login google tidak aktif")
+			return
+		}
+		httpx.Error(w, http.StatusUnauthorized, "verifikasi google gagal")
+		return
+	}
+	res, err := h.svc.OAuthUpsert(r.Context(), "google", identity.sub, identity.email, identity.name)
 	if h.writeErr(w, err) {
 		return
 	}

@@ -61,7 +61,11 @@ func main() {
 
 	// End-user authentication (quiz players), including Google OAuth upsert.
 	userSvc := auth.NewUserService(repo, jwtMgr, log)
-	auth.NewUserHandler(userSvc, config.Get("INTERNAL_API_SECRET", "")).Routes(mux, authMW)
+	auth.NewUserHandler(
+		userSvc,
+		config.Get("INTERNAL_API_SECRET", ""),
+		config.Get("GOOGLE_CLIENT_ID", ""),
+	).Routes(mux, authMW)
 
 	origins := strings.Split(config.Get("CORS_ORIGINS", "http://localhost:3000"), ",")
 	handler := middleware.Chain(mux,

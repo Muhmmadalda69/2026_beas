@@ -44,6 +44,8 @@ services:
       AUTH_DATABASE_URL: postgres://galuh:${POSTGRES_PASSWORD:-galuh}@postgres:5432/galuh_auth?sslmode=disable
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
+      # Accepted audience for mobile Google id_tokens (reuse the web client ID).
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     depends_on:
       postgres: { condition: service_healthy }
     networks: [internal]
