@@ -16,6 +16,7 @@ build/
 *.test
 *.out
 bin/
+backend/deploy/init-db.sql
 
 # Environment files
 .env
