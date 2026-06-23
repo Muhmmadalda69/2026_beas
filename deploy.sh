@@ -75,9 +75,9 @@ for i in $(seq 1 $max_retries); do
   sleep 3
 done
 
-# 4. Build & start the full stack.
+# 4. Build & start the full stack (production overrides: port 80, no postgres exposed).
 log "Building and starting services..."
-docker compose up --build -d
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 
 # 5. Wait for services to be healthy.
 log "Waiting for stack to stabilize..."
