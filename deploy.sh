@@ -23,13 +23,15 @@ fi
 
 log "Béas production deployment"
 
-# 1. Pull latest code, but exclude mobile folder (dev-only, unnecessary on server).
-log "Pulling from origin (excluding mobile folder)..."
+# 1. Pull latest code with sparse-checkout: only backend + frontend (skip mobile).
+log "Pulling from origin (sparse-checkout: backend + frontend only)..."
+# Initialize sparse-checkout patterns (safe to re-run).
+git sparse-checkout init --cone 2>/dev/null || true
+git sparse-checkout set backend frontend docker-compose.yml docker-compose.prod.yml deploy.sh .gitignore
+# Pull latest.
 git fetch origin main
 git reset --hard origin/main
-# Remove mobile folder if it somehow exists locally, so it doesn't linger.
-rm -rf mobile/
-log "Pulled & cleaned."
+log "Pulled. Mobile folder excluded (sparse-checkout)."
 
 # 2. Generate secrets if .env does not exist.
 if [ ! -f ".env" ]; then
