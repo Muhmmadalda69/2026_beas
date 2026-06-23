@@ -25,15 +25,12 @@ log "Béas production deployment"
 
 # 1. Pull latest code with sparse-checkout: only backend + frontend (skip mobile).
 log "Pulling from origin (sparse-checkout: backend + frontend only)..."
-# Initialize sparse-checkout (safe to re-run; stores patterns in .git/info/sparse-checkout).
-if ! git sparse-checkout list > /dev/null 2>&1; then
-  git sparse-checkout init
-fi
-# Set patterns: include backend + frontend dirs + root config files, exclude mobile.
+# Initialize & configure sparse-checkout to exclude mobile folder (necessary for Docker build).
+git sparse-checkout init 2>/dev/null || true
+# Set patterns: include backend (with deploy/ for init-db.sql) + frontend + root config.
 {
-  echo "/*"
-  echo "!mobile/"
   echo "backend/"
+  echo "backend/deploy/"
   echo "frontend/"
   echo "docker-compose.yml"
   echo "docker-compose.prod.yml"
