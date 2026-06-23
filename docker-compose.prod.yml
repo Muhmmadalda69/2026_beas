@@ -28,7 +28,11 @@ services:
 
   gateway:
     restart: always
-    ports: !reset []
+    # Published so the mobile app (and any external API client) can reach the
+    # gateway directly with a Bearer token. Endpoints are JWT-protected + rate
+    # limited. Open port 8080 in the server firewall / Security Group too.
+    ports: !override
+      - "8080:8080"
 
   frontend:
     restart: always
