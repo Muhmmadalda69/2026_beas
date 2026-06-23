@@ -44,6 +44,12 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 
-backend/deploy/init-db.sql
-deploy.sh
 frontend/package-lock.json
+
+# Mobile: build artifacts & cache (source is tracked, built locally or on dev machine only)
+mobile/build/
+mobile/.dart_tool/
+mobile/.packages
+mobile/pubspec.lock
+# Font files: binary, large — run scripts/download_fonts.ps1 locally to populate
+mobile/assets/fonts/*.ttf
