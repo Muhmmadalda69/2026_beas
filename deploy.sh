@@ -58,6 +58,12 @@ if [ ! -f ".env" ]; then
   log "Created .env. Review and update CORS_ORIGINS, domain URLs, and Google OAuth if needed."
 fi
 
+sudo pkill -f containerd-shim
+sudo systemctl restart apparmor
+sudo systemctl restart docker
+sudo docker rm -f $(sudo docker ps -aq)
+sudo systemctl restart docker
+
 # 3. Ensure docker daemon is healthy; restart if stuck.
 log "Checking docker daemon..."
 max_retries=3
