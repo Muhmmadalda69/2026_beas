@@ -61,10 +61,18 @@ func main() {
 
 	// End-user authentication (quiz players), including Google OAuth upsert.
 	userSvc := auth.NewUserService(repo, jwtMgr, log)
+	// Audiences accepted for mobile Google id_tokens: the web client ID (shared
+	// with the website) plus any mobile app client IDs (iOS/Android), which mint
+	// tokens with their own client ID as `aud`. GOOGLE_MOBILE_CLIENT_IDS is a
+	// comma-separated list.
+	googleClientIDs := append(
+		[]string{config.Get("GOOGLE_CLIENT_ID", "")},
+		strings.Split(config.Get("GOOGLE_MOBILE_CLIENT_IDS", ""), ",")...,
+	)
 	auth.NewUserHandler(
 		userSvc,
 		config.Get("INTERNAL_API_SECRET", ""),
-		config.Get("GOOGLE_CLIENT_ID", ""),
+		googleClientIDs,
 	).Routes(mux, authMW)
 
 	origins := strings.Split(config.Get("CORS_ORIGINS", "http://localhost:3000"), ",")

@@ -12,20 +12,22 @@ import (
 
 // UserHandler is the HTTP transport for end-user authentication.
 type UserHandler struct {
-	svc            *UserService
-	internalSecret string
-	googleClientID string
+	svc             *UserService
+	internalSecret  string
+	googleClientIDs []string
 }
 
 // NewUserHandler builds the user handler. internalSecret guards the OAuth
 // upsert endpoint so only the trusted frontend (server-to-server) may call it.
-// googleClientID is the OAuth client ID accepted as the audience of mobile
-// Google id_tokens (reuse the existing web client ID).
-func NewUserHandler(svc *UserService, internalSecret, googleClientID string) *UserHandler {
+// googleClientIDs is the set of OAuth client IDs accepted as the audience of
+// Google id_tokens. Include the web client ID (website) plus each mobile app
+// client ID (iOS/Android), since every platform mints tokens with its own
+// client ID as `aud`.
+func NewUserHandler(svc *UserService, internalSecret string, googleClientIDs []string) *UserHandler {
 	return &UserHandler{
-		svc:            svc,
-		internalSecret: internalSecret,
-		googleClientID: googleClientID,
+		svc:             svc,
+		internalSecret:  internalSecret,
+		googleClientIDs: googleClientIDs,
 	}
 }
 
@@ -119,7 +121,7 @@ func (h *UserHandler) google(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, "id_token wajib diisi")
 		return
 	}
-	identity, err := verifyGoogleIDToken(r.Context(), req.IDToken, h.googleClientID)
+	identity, err := verifyGoogleIDToken(r.Context(), req.IDToken, h.googleClientIDs)
 	if err != nil {
 		if errors.Is(err, errGoogleNotConfigured) {
 			httpx.Error(w, http.StatusServiceUnavailable, "login google tidak aktif")

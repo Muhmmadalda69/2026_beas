@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -26,8 +27,18 @@ var googleHTTPClient = &http.Client{Timeout: 10 * time.Second}
 // avoids pulling in a JWKS/JWT verification dependency while still being secure:
 // Google only returns 200 for tokens it signed and that are unexpired, and we
 // additionally pin the audience and issuer.
-func verifyGoogleIDToken(ctx context.Context, idToken, clientID string) (googleIdentity, error) {
-	if clientID == "" {
+func verifyGoogleIDToken(ctx context.Context, idToken string, clientIDs []string) (googleIdentity, error) {
+	// Accept the id_token if its audience matches any configured client ID.
+	// Different platforms mint id_tokens with their own client ID as `aud`
+	// (web for the website, iOS/Android for the mobile app), so the backend
+	// must trust the whole set — not just the web client.
+	accepted := make([]string, 0, len(clientIDs))
+	for _, id := range clientIDs {
+		if s := strings.TrimSpace(id); s != "" {
+			accepted = append(accepted, s)
+		}
+	}
+	if len(accepted) == 0 {
 		return googleIdentity{}, errGoogleNotConfigured
 	}
 
@@ -58,7 +69,14 @@ func verifyGoogleIDToken(ctx context.Context, idToken, clientID string) (googleI
 		return googleIdentity{}, err
 	}
 
-	if payload.Aud != clientID {
+	audOK := false
+	for _, id := range accepted {
+		if payload.Aud == id {
+			audOK = true
+			break
+		}
+	}
+	if !audOK {
 		return googleIdentity{}, errors.New("audience mismatch")
 	}
 	if payload.Iss != "accounts.google.com" &&
