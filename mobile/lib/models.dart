@@ -106,25 +106,34 @@ class Level {
 
 class PlayQuestion {
   final String id;
+  final String type; // "choice" | "text" | "write"
   final String prompt;
   final String promptAksara;
   final List<String> options;
   final int points;
+  final bool showGuide; // write: trace (true) vs from memory (false)
   PlayQuestion({
     required this.id,
+    required this.type,
     required this.prompt,
     required this.promptAksara,
     required this.options,
     required this.points,
+    required this.showGuide,
   });
-  factory PlayQuestion.fromJson(Map<String, dynamic> j) => PlayQuestion(
-        id: _str(j['id']),
-        prompt: _str(j['prompt']),
-        promptAksara: _str(j['prompt_aksara']),
-        options:
-            ((j['options'] as List?) ?? const []).map((e) => '$e').toList(),
-        points: _int(j['points']),
-      );
+  factory PlayQuestion.fromJson(Map<String, dynamic> j) {
+    final t = _str(j['type']);
+    return PlayQuestion(
+      id: _str(j['id']),
+      type: t.isEmpty ? 'choice' : t,
+      prompt: _str(j['prompt']),
+      promptAksara: _str(j['prompt_aksara']),
+      options:
+          ((j['options'] as List?) ?? const []).map((e) => '$e').toList(),
+      points: _int(j['points']),
+      showGuide: j['show_guide'] != false, // default true
+    );
+  }
 }
 
 class PlaySession {

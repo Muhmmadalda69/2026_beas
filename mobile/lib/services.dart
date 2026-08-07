@@ -34,6 +34,12 @@ class AuthService {
         await api.post('/api/auth/users/google', body: {'id_token': idToken});
     return AuthResult.fromJson((d as Map).cast<String, dynamic>());
   }
+
+  /// Sets/replaces the current user's password (requires an active session),
+  /// enabling email+password login for accounts created via Google.
+  static Future<void> setPassword(String password) async {
+    await api.put('/api/auth/users/me/password', body: {'password': password});
+  }
 }
 
 class WikiService {
@@ -69,13 +75,11 @@ class QuizService {
 
   static Future<QuizResult> submit(
     String sessionId,
-    Map<String, String> answers,
+    List<Map<String, dynamic>> answers,
   ) async {
     final payload = {
       'session_id': sessionId,
-      'answers': answers.entries
-          .map((e) => {'question_id': e.key, 'answer': e.value})
-          .toList(),
+      'answers': answers,
     };
     final d = await api.post('/api/quiz/submit', body: payload);
     return QuizResult.fromJson((d as Map).cast<String, dynamic>());

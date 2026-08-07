@@ -66,6 +66,18 @@ func (r *PostgresRepository) CreateUser(ctx context.Context, email, name, passwo
 	return u, err
 }
 
+// UpdatePassword sets the bcrypt hash for an existing user.
+func (r *PostgresRepository) UpdatePassword(ctx context.Context, id, passwordHash string) error {
+	tag, err := r.pool.Exec(ctx, `UPDATE users SET password_hash = $1 WHERE id = $2`, passwordHash, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
 func isUniqueViolationAuth(err error) bool {
 	type coder interface{ SQLState() string }
 	var c coder

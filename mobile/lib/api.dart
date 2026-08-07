@@ -64,6 +64,24 @@ class ApiClient {
     }
   }
 
+  Future<dynamic> put(String path, {Object? body}) async {
+    final uri = Uri.parse('$baseUrl$path');
+    try {
+      final res = await http
+          .put(
+            uri,
+            headers: _headers(json: true),
+            body: body == null ? null : jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _decode(res);
+    } on ApiException {
+      rethrow;
+    } catch (_) {
+      throw ApiException(0, 'Tidak dapat terhubung ke server.');
+    }
+  }
+
   dynamic _decode(http.Response res) {
     dynamic parsed;
     if (res.body.isNotEmpty) {

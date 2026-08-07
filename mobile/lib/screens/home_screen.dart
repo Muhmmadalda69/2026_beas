@@ -6,6 +6,7 @@ import '../theme.dart';
 import '../state/auth.dart';
 import '../widgets/common.dart';
 import 'aksara_screen.dart';
+import 'nulis_screen.dart';
 import 'wiki_detail_screen.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
@@ -27,6 +28,9 @@ class HomeScreen extends StatelessWidget {
       _Feature('Tabel Aksara', 'Referensi swara, ngalagena, dll', Icons.grid_view_rounded,
           () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const AksaraScreen()))),
+      _Feature('Latihan Nulis', 'Jiplak aksara & lihat nilainya', Icons.draw_outlined,
+          () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const NulisScreen()))),
     ];
 
     return Scaffold(
@@ -56,7 +60,7 @@ class HomeScreen extends StatelessWidget {
         children: [
           _Hero(onSelectTab: onSelectTab),
           const SizedBox(height: 28),
-          const SectionTitle('Empat cara menjelajah'),
+          const SectionTitle('Cara menjelajah'),
           const SizedBox(height: 14),
           GridView.count(
             crossAxisCount: 2,

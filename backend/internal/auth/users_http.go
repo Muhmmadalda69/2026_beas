@@ -38,6 +38,7 @@ func (h *UserHandler) Routes(mux *http.ServeMux, authMW middleware.Middleware) {
 	mux.HandleFunc("POST /users/oauth", h.oauth)
 	mux.HandleFunc("POST /users/google", h.google)
 	mux.Handle("GET /users/me", authMW(http.HandlerFunc(h.me)))
+	mux.Handle("PUT /users/me/password", authMW(http.HandlerFunc(h.setPassword)))
 }
 
 type registerRequest struct {
@@ -148,6 +149,29 @@ func (h *UserHandler) me(w http.ResponseWriter, r *http.Request) {
 		"name": claims.Username,
 		"role": claims.Role,
 	})
+}
+
+type setPasswordRequest struct {
+	Password string `json:"password"`
+}
+
+// setPassword sets/replaces the authenticated user's local password.
+func (h *UserHandler) setPassword(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.ClaimsFrom(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	var req setPasswordRequest
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := h.svc.SetPassword(r.Context(), claims.Subject, req.Password); err != nil {
+		h.writeErr(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusNoContent, nil)
 }
 
 func (h *UserHandler) writeErr(w http.ResponseWriter, err error) bool {

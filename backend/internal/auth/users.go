@@ -34,6 +34,7 @@ type UserRepository interface {
 	GetUserByEmail(ctx context.Context, email string) (*User, string, error) // also returns password hash
 	GetUserByProvider(ctx context.Context, provider, sub string) (*User, error)
 	CreateUser(ctx context.Context, email, name, passwordHash, provider, sub string) (*User, error)
+	UpdatePassword(ctx context.Context, id, passwordHash string) error
 }
 
 // UserService implements user registration, login and OAuth upsert.
@@ -130,6 +131,20 @@ func (s *UserService) OAuthUpsert(ctx context.Context, provider, sub, email, nam
 		}
 	}
 	return s.issue(user)
+}
+
+// SetPassword sets (or replaces) the local password for an authenticated user,
+// enabling email+password login — e.g. for accounts created via Google, which
+// start without one. The caller is trusted (identified by a valid session).
+func (s *UserService) SetPassword(ctx context.Context, userID, plain string) error {
+	if utf8.RuneCountInString(plain) < 8 {
+		return ErrValidationUser("kata sandi minimal 8 karakter")
+	}
+	hash, err := password.Hash(plain)
+	if err != nil {
+		return err
+	}
+	return s.repo.UpdatePassword(ctx, userID, hash)
 }
 
 func (s *UserService) issue(user *User) (*UserAuthResult, error) {

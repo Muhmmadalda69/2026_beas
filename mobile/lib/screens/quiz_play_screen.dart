@@ -7,6 +7,7 @@ import '../services.dart';
 import '../theme.dart';
 import '../state/auth.dart';
 import '../widgets/common.dart';
+import '../widgets/aksara_pad.dart';
 import 'login_screen.dart';
 
 enum _Phase { loading, playing, result, error }
@@ -31,9 +32,11 @@ class _QuizPlayScreenState extends State<QuizPlayScreen> {
   PlaySession? _session;
   int _current = 0;
   final Map<String, String> _answers = {};
+  final Map<String, TextEditingController> _textCtrls = {};
   QuizResult? _result;
   String _error = '';
   bool _submitting = false;
+  bool _lockScroll = false; // freeze the list while drawing a write answer
   int _elapsed = 0;
   Timer? _timer;
 
@@ -46,11 +49,21 @@ class _QuizPlayScreenState extends State<QuizPlayScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    for (final c in _textCtrls.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
+  TextEditingController _textCtrl(String qid) =>
+      _textCtrls.putIfAbsent(qid, () => TextEditingController(text: _answers[qid] ?? ''));
+
   Future<void> _start() async {
     _timer?.cancel();
+    for (final c in _textCtrls.values) {
+      c.dispose();
+    }
+    _textCtrls.clear();
     setState(() {
       _phase = _Phase.loading;
       _answers.clear();
@@ -82,7 +95,13 @@ class _QuizPlayScreenState extends State<QuizPlayScreen> {
     if (s == null) return;
     setState(() => _submitting = true);
     try {
-      final r = await QuizService.submit(s.sessionId, _answers);
+      final answers = s.questions.map((qq) {
+        final v = _answers[qq.id] ?? '';
+        return qq.type == 'write'
+            ? {'question_id': qq.id, 'answer': '', 'drawing': v}
+            : {'question_id': qq.id, 'answer': v};
+      }).toList();
+      final r = await QuizService.submit(s.sessionId, answers);
       _timer?.cancel();
       if (!mounted) return;
       setState(() {
@@ -155,6 +174,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen> {
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+      physics: _lockScroll ? const NeverScrollableScrollPhysics() : null,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -200,15 +220,46 @@ class _QuizPlayScreenState extends State<QuizPlayScreen> {
               Text(q.prompt,
                   style: const TextStyle(
                       fontSize: 18, fontWeight: FontWeight.w600, height: 1.4)),
-              if (q.promptAksara.isNotEmpty) ...[
+              if (q.type != 'write' && q.promptAksara.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Text(q.promptAksara,
                     style:
                         AppText.aksara(size: 40, color: AppColors.primarySoft)),
               ],
               const SizedBox(height: 18),
-              for (var i = 0; i < q.options.length; i++)
-                _option(q.options[i], i, q.options[i] == selected),
+              if (q.type == 'write')
+                AksaraPad(
+                  key: ValueKey(q.id),
+                  char: q.promptAksara,
+                  showGuide: q.showGuide,
+                  onInteracting: (v) => setState(() => _lockScroll = v),
+                  onChanged: (mask) => setState(() {
+                    if (mask == null) {
+                      _answers.remove(q.id);
+                    } else {
+                      _answers[q.id] = mask;
+                    }
+                  }),
+                )
+              else if (q.type == 'text') ...[
+                TextField(
+                  controller: _textCtrl(q.id),
+                  onChanged: (v) => setState(() {
+                    if (v.trim().isEmpty) {
+                      _answers.remove(q.id);
+                    } else {
+                      _answers[q.id] = v;
+                    }
+                  }),
+                  decoration: const InputDecoration(hintText: 'Ketik jawabanmu…'),
+                  textInputAction: TextInputAction.done,
+                ),
+                const SizedBox(height: 6),
+                const Text('Huruf besar/kecil tidak dibedakan.',
+                    style: TextStyle(fontSize: 12, color: AppColors.muted)),
+              ] else
+                for (var i = 0; i < q.options.length; i++)
+                  _option(q.options[i], i, q.options[i] == selected),
             ],
           ),
         ),

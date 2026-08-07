@@ -59,9 +59,13 @@ export default function Navbar({ user }: { user: { name: string } | null }) {
           ))}
           {user ? (
             <div className="ml-2 flex items-center gap-2">
-              <span className="max-w-[10rem] truncate rounded-full bg-surface-2 px-3 py-1.5 text-sm font-medium text-foreground">
+              <Link
+                href="/akun"
+                title="Akun"
+                className="max-w-[10rem] truncate rounded-full bg-surface-2 px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:text-primary"
+              >
                 {user.name}
-              </span>
+              </Link>
               <button
                 onClick={logout}
                 className="flex h-9 w-9 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-danger cursor-pointer"
@@ -109,16 +113,25 @@ export default function Navbar({ user }: { user: { name: string } | null }) {
               </Link>
             ))}
             {user ? (
-              <button
-                onClick={() => {
-                  setOpen(false);
-                  logout();
-                }}
-                className="flex items-center gap-2 rounded-lg px-4 py-3 text-left text-base font-medium text-danger hover:bg-danger/10 cursor-pointer"
-              >
-                <LogoutIcon className="h-5 w-5" />
-                Keluar ({user.name})
-              </button>
+              <>
+                <Link
+                  href="/akun"
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg px-4 py-3 text-base font-medium text-foreground hover:bg-surface-2"
+                >
+                  Akun
+                </Link>
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    logout();
+                  }}
+                  className="flex items-center gap-2 rounded-lg px-4 py-3 text-left text-base font-medium text-danger hover:bg-danger/10 cursor-pointer"
+                >
+                  <LogoutIcon className="h-5 w-5" />
+                  Keluar ({user.name})
+                </button>
+              </>
             ) : (
               <Link
                 href="/masuk"
