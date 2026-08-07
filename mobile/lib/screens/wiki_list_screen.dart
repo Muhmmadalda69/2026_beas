@@ -123,7 +123,7 @@ class _WikiListScreenState extends State<WikiListScreen> {
         label: Text(label),
         selected: active,
         onSelected: (_) => onTap(),
-        selectedColor: AppColors.primary.withOpacity(0.14),
+        selectedColor: AppColors.primary.withValues(alpha: 0.14),
         labelStyle: TextStyle(
           color: active ? AppColors.primary : AppColors.muted,
           fontWeight: FontWeight.w600,

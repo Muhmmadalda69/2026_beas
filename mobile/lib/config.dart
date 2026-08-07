@@ -13,7 +13,7 @@ class AppConfig {
   /// (or put it behind a reverse proxy) and allow it in the firewall.
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8080',
+    defaultValue: 'http://3.25.24.69.sslip.io:8080',
   );
 
   /// OAuth **Web** client ID (the same one used by the website). Passed to
@@ -23,7 +23,8 @@ class AppConfig {
   ///   flutter run --dart-define=GOOGLE_SERVER_CLIENT_ID=xxxx.apps.googleusercontent.com
   static const String googleServerClientId = String.fromEnvironment(
     'GOOGLE_SERVER_CLIENT_ID',
-    defaultValue: '',
+    defaultValue:
+        '1035490084820-nn497aqvimtv4thmjnkksha0mq6084e7.apps.googleusercontent.com',
   );
 
   static bool get googleEnabled => googleServerClientId.isNotEmpty;

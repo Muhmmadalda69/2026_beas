@@ -56,8 +56,6 @@ ThemeData buildAppTheme() {
     onSecondary: AppColors.surface,
     surface: AppColors.surface,
     onSurface: AppColors.foreground,
-    background: AppColors.background,
-    onBackground: AppColors.foreground,
     error: AppColors.danger,
     outline: AppColors.border,
   );
@@ -92,7 +90,7 @@ ThemeData buildAppTheme() {
       centerTitle: false,
       titleTextStyle: AppText.display(size: 22, weight: FontWeight.w700),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: AppColors.surface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
@@ -149,20 +147,20 @@ ThemeData buildAppTheme() {
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: AppColors.surface,
       surfaceTintColor: Colors.transparent,
-      indicatorColor: AppColors.primary.withOpacity(0.12),
+      indicatorColor: AppColors.primary.withValues(alpha: 0.12),
       elevation: 3,
-      labelTextStyle: MaterialStateProperty.resolveWith(
+      labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: states.contains(MaterialState.selected)
+          color: states.contains(WidgetState.selected)
               ? AppColors.primary
               : AppColors.muted,
         ),
       ),
-      iconTheme: MaterialStateProperty.resolveWith(
+      iconTheme: WidgetStateProperty.resolveWith(
         (states) => IconThemeData(
-          color: states.contains(MaterialState.selected)
+          color: states.contains(WidgetState.selected)
               ? AppColors.primary
               : AppColors.muted,
         ),

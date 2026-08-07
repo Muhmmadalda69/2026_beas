@@ -74,10 +74,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.06),
+                        color: AppColors.primary.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(16),
                         border:
-                            Border.all(color: AppColors.primary.withOpacity(0.3)),
+                            Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         children: [
@@ -133,11 +133,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: color.withOpacity(e.rank <= 3 ? 0.18 : 0.1),
+              color: color.withValues(alpha: e.rank <= 3 ? 0.18 : 0.1),
               boxShadow: e.rank <= 3
                   ? [
                       BoxShadow(
-                          color: color.withOpacity(0.35),
+                          color: color.withValues(alpha: 0.35),
                           blurRadius: 12,
                           offset: const Offset(0, 4))
                     ]

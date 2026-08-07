@@ -96,9 +96,9 @@ class _QuizLevelsScreenState extends State<QuizLevelsScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.06),
+        color: AppColors.primary.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -147,8 +147,8 @@ class _QuizLevelsScreenState extends State<QuizLevelsScreen> {
             width: 46,
             decoration: BoxDecoration(
               color: locked
-                  ? AppColors.muted.withOpacity(0.12)
-                  : AppColors.primary.withOpacity(0.1),
+                  ? AppColors.muted.withValues(alpha: 0.12)
+                  : AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(

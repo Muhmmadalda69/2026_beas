@@ -252,7 +252,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen> {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: active ? AppColors.primary.withOpacity(0.1) : AppColors.background,
+            color: active ? AppColors.primary.withValues(alpha: 0.1) : AppColors.background,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: active ? AppColors.primary : AppColors.border,
@@ -296,9 +296,9 @@ class _QuizPlayScreenState extends State<QuizPlayScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.gold.withOpacity(0.08),
+        color: AppColors.gold.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.gold.withOpacity(0.3)),
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -325,11 +325,11 @@ class _QuizPlayScreenState extends State<QuizPlayScreen> {
         Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: (r.passed ? AppColors.olive : AppColors.gold).withOpacity(0.07),
+            color: (r.passed ? AppColors.olive : AppColors.gold).withValues(alpha: 0.07),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
                 color: (r.passed ? AppColors.olive : AppColors.gold)
-                    .withOpacity(0.4)),
+                    .withValues(alpha: 0.4)),
           ),
           child: Column(
             children: [
@@ -386,7 +386,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 3),
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
         decoration: BoxDecoration(
-          color: strong ? AppColors.primary.withOpacity(0.06) : AppColors.surface,
+          color: strong ? AppColors.primary.withValues(alpha: 0.06) : AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
               color: strong ? AppColors.primary : AppColors.border),

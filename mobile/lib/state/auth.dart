@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -76,6 +78,18 @@ class AuthProvider extends ChangeNotifier {
     final idToken = tokens.idToken;
     if (idToken == null || idToken.isEmpty) {
       throw ApiException(0, 'Tidak mendapatkan token Google.');
+    }
+    // TEMP DIAGNOSTIC: decode the id_token payload so we can confirm the exact
+    // `aud`/`iss`/`email_verified` the backend receives. Remove once fixed.
+    try {
+      final parts = idToken.split('.');
+      if (parts.length == 3) {
+        final payload =
+            utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+        debugPrint('[GoogleSignIn] id_token payload=$payload');
+      }
+    } catch (e) {
+      debugPrint('[GoogleSignIn] gagal decode id_token: $e');
     }
     await _apply(await AuthService.google(idToken));
     return true;

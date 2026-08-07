@@ -30,7 +30,7 @@ class ProfileScreen extends StatelessWidget {
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.primary.withOpacity(0.12),
+                          color: AppColors.primary.withValues(alpha: 0.12),
                         ),
                         child: Text(initial,
                             style: AppText.display(
@@ -61,7 +61,7 @@ class ProfileScreen extends StatelessWidget {
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.danger,
-                      side: BorderSide(color: AppColors.danger.withOpacity(0.4)),
+                      side: BorderSide(color: AppColors.danger.withValues(alpha: 0.4)),
                     ),
                     onPressed: () async {
                       await context.read<AuthProvider>().logout();

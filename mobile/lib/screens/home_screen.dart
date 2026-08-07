@@ -103,7 +103,7 @@ class _Hero extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.35),
+            color: AppColors.primary.withValues(alpha: 0.35),
             blurRadius: 30,
             offset: const Offset(0, 14),
           ),
@@ -122,7 +122,7 @@ class _Hero extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Baca ensiklopedia, ubah tulisan Latin ke aksara, dan berlatih lewat kuis bertingkat.',
-            style: TextStyle(color: Colors.white.withOpacity(0.9), height: 1.5),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.9), height: 1.5),
           ),
           const SizedBox(height: 18),
           Wrap(
@@ -168,7 +168,7 @@ class _FeatureCard extends StatelessWidget {
             height: 44,
             width: 44,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(f.icon, color: AppColors.primary),
