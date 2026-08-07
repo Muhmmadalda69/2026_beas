@@ -43,33 +43,46 @@ export interface LevelInput {
   draw_count: number;
 }
 
+// Question kind. "choice" = multiple-choice; "text" = free-text answer matched
+// against accepted answers; "write" = draw/trace an aksara, graded by drawing
+// similarity. Missing/empty is treated as "choice".
+export type QuestionType = "choice" | "text" | "write";
+
 export interface Question {
   id: string;
   level_id: string;
+  type: QuestionType;
   prompt: string;
   prompt_aksara: string;
   options: string[];
   correct_index: number;
   explanation: string;
   points: number;
+  show_guide: boolean; // write: trace (true) vs from memory (false)
+  ref_mask: string; // write: base64 reference mask (answer key)
   created_at: string;
 }
 
 export interface QuestionInput {
+  type: QuestionType;
   prompt: string;
   prompt_aksara: string;
   options: string[];
   correct_index: number;
   explanation: string;
   points: number;
+  show_guide: boolean;
+  ref_mask: string;
 }
 
 export interface PlayQuestion {
   id: string;
+  type: QuestionType;
   prompt: string;
   prompt_aksara: string;
   options: string[];
   points: number;
+  show_guide: boolean;
 }
 
 export interface PlaySession {

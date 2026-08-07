@@ -159,17 +159,21 @@ func (r *PostgresRepository) PassedLevelNumbers(ctx context.Context, userID stri
 
 // ----- Questions -----
 
-const questionCols = `id, level_id, prompt, prompt_aksara, options, correct_index, explanation, points, created_at`
+const questionCols = `id, level_id, prompt, prompt_aksara, options, correct_index, explanation, points, type, show_guide, ref_mask, created_at`
 
 func scanQuestion(row pgx.Row) (*Question, error) {
 	var q Question
 	var rawOptions []byte
 	if err := row.Scan(&q.ID, &q.LevelID, &q.Prompt, &q.PromptAksara, &rawOptions,
-		&q.CorrectIndex, &q.Explanation, &q.Points, &q.CreatedAt); err != nil {
+		&q.CorrectIndex, &q.Explanation, &q.Points, &q.Type, &q.ShowGuide, &q.RefMask,
+		&q.CreatedAt); err != nil {
 		return nil, err
 	}
 	if err := json.Unmarshal(rawOptions, &q.Options); err != nil {
 		return nil, err
+	}
+	if q.Options == nil {
+		q.Options = []string{}
 	}
 	return &q, nil
 }
@@ -214,10 +218,11 @@ func (r *PostgresRepository) CreateQuestion(ctx context.Context, levelID string,
 	if err != nil {
 		return nil, err
 	}
-	const q = `INSERT INTO questions (level_id, prompt, prompt_aksara, options, correct_index, explanation, points)
-	           VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING ` + questionCols
+	const q = `INSERT INTO questions
+	           (level_id, prompt, prompt_aksara, options, correct_index, explanation, points, type, show_guide, ref_mask)
+	           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING ` + questionCols
 	res, err := scanQuestion(r.pool.QueryRow(ctx, q, levelID, in.Prompt, in.PromptAksara,
-		opts, in.CorrectIndex, in.Explanation, in.Points))
+		opts, in.CorrectIndex, in.Explanation, in.Points, in.Type, in.ShowGuide, in.RefMask))
 	if isForeignKeyViolation(err) {
 		return nil, ErrNotFound
 	}
@@ -230,9 +235,9 @@ func (r *PostgresRepository) UpdateQuestion(ctx context.Context, id string, in Q
 		return nil, err
 	}
 	const q = `UPDATE questions SET prompt=$1, prompt_aksara=$2, options=$3, correct_index=$4,
-	           explanation=$5, points=$6 WHERE id=$7 RETURNING ` + questionCols
+	           explanation=$5, points=$6, type=$7, show_guide=$8, ref_mask=$9 WHERE id=$10 RETURNING ` + questionCols
 	res, err := scanQuestion(r.pool.QueryRow(ctx, q, in.Prompt, in.PromptAksara, opts,
-		in.CorrectIndex, in.Explanation, in.Points, id))
+		in.CorrectIndex, in.Explanation, in.Points, in.Type, in.ShowGuide, in.RefMask, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}

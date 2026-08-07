@@ -7,6 +7,7 @@ import { userGw, ApiError } from "@/lib/api";
 import type { PlaySession, QuizResult } from "@/lib/types";
 import { CheckIcon, XIcon, ArrowRightIcon, ClockIcon } from "@/components/icons";
 import { Skeleton, SkeletonScreen } from "@/components/Skeleton";
+import QuizWriteCanvas from "@/components/QuizWriteCanvas";
 
 function formatTime(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
@@ -105,18 +106,27 @@ export default function QuizPlayer({ levelId }: { levelId: string }) {
   const answeredCount = Object.keys(answers).length;
   const isLast = current === total - 1;
 
-  const choose = (option: string) =>
-    setAnswers((prev) => ({ ...prev, [q.id]: option }));
+  const setAnswer = (qid: string, value: string | null) =>
+    setAnswers((prev) => {
+      if (value == null) {
+        const next = { ...prev };
+        delete next[qid];
+        return next;
+      }
+      return { ...prev, [qid]: value };
+    });
+  const choose = (option: string) => setAnswer(q.id, option);
 
   const submit = async () => {
     setSubmitting(true);
     try {
       const payload = {
         session_id: session.session_id,
-        answers: Object.entries(answers).map(([question_id, answer]) => ({
-          question_id,
-          answer,
-        })),
+        answers: session.questions.map((qq) =>
+          qq.type === "write"
+            ? { question_id: qq.id, answer: "", drawing: answers[qq.id] || "" }
+            : { question_id: qq.id, answer: answers[qq.id] || "" },
+        ),
       };
       const res = await userGw<QuizResult>("quiz/submit", {
         method: "POST",
@@ -188,40 +198,65 @@ export default function QuizPlayer({ levelId }: { levelId: string }) {
             className="preserve-3d rounded-2xl border border-border bg-surface p-6"
           >
             <p className="text-xl font-medium text-foreground">{q.prompt}</p>
-        {q.prompt_aksara && (
-          <p className="aksara mt-3 text-4xl text-primary-soft">
-            {q.prompt_aksara}
-          </p>
-        )}
+            {q.type !== "write" && q.prompt_aksara && (
+              <p className="aksara mt-3 text-4xl text-primary-soft">
+                {q.prompt_aksara}
+              </p>
+            )}
 
-        <div className="mt-6 grid gap-3">
-          {q.options.map((opt, i) => {
-            const active = selected === opt;
-            return (
-              <button
-                key={i}
-                type="button"
-                onClick={() => choose(opt)}
-                className={`flex items-center gap-3 rounded-xl border p-4 text-left transition-colors cursor-pointer ${
-                  active
-                    ? "border-primary bg-primary/10"
-                    : "border-border bg-background hover:border-primary-soft"
-                }`}
-              >
-                <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-semibold ${
-                    active
-                      ? "border-primary bg-primary text-surface"
-                      : "border-border text-muted"
-                  }`}
-                >
-                  {String.fromCharCode(65 + i)}
-                </span>
-                <span className="aksara text-2xl text-foreground">{opt}</span>
-              </button>
-            );
-          })}
-            </div>
+            {q.type === "write" ? (
+              <div className="mt-6">
+                <QuizWriteCanvas
+                  key={q.id}
+                  promptAksara={q.prompt_aksara}
+                  showGuide={q.show_guide}
+                  initial={answers[q.id]}
+                  onChange={(mask) => setAnswer(q.id, mask)}
+                />
+              </div>
+            ) : q.type === "text" ? (
+              <div className="mt-6">
+                <input
+                  type="text"
+                  value={answers[q.id] ?? ""}
+                  onChange={(e) => setAnswer(q.id, e.target.value || null)}
+                  placeholder="Ketik jawabanmu…"
+                  className="input text-lg"
+                />
+                <p className="mt-2 text-xs text-muted">
+                  Huruf besar/kecil tidak dibedakan.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-3">
+                {q.options.map((opt, i) => {
+                  const active = selected === opt;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => choose(opt)}
+                      className={`flex items-center gap-3 rounded-xl border p-4 text-left transition-colors cursor-pointer ${
+                        active
+                          ? "border-primary bg-primary/10"
+                          : "border-border bg-background hover:border-primary-soft"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-semibold ${
+                          active
+                            ? "border-primary bg-primary text-surface"
+                            : "border-border text-muted"
+                        }`}
+                      >
+                        {String.fromCharCode(65 + i)}
+                      </span>
+                      <span className="aksara text-2xl text-foreground">{opt}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

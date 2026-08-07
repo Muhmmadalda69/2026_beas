@@ -9,6 +9,7 @@ const links = [
   { href: "/", label: "Beranda" },
   { href: "/wiki", label: "Ensiklopedia" },
   { href: "/aksara", label: "Aksara" },
+  { href: "/nulis", label: "Nulis" },
   { href: "/transliterasi", label: "Transliterasi" },
   { href: "/kuis", label: "Kuis" },
   { href: "/peringkat", label: "Peringkat" },

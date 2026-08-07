@@ -26,6 +26,7 @@ export default function Footer() {
           <ul className="mt-3 space-y-2 text-sm text-muted">
             <li><Link href="/wiki" className="hover:text-primary">Ensiklopedia</Link></li>
             <li><Link href="/aksara" className="hover:text-primary">Tabel Aksara</Link></li>
+            <li><Link href="/nulis" className="hover:text-primary">Latihan Menulis</Link></li>
             <li><Link href="/transliterasi" className="hover:text-primary">Transliterasi</Link></li>
             <li><Link href="/kuis" className="hover:text-primary">Kuis Bertingkat</Link></li>
             <li><Link href="/peringkat" className="hover:text-primary">Papan Peringkat</Link></li>

@@ -2,6 +2,7 @@ package quiz
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -123,16 +124,33 @@ func (s *Service) Play(ctx context.Context, levelID, userID string) (*PlaySessio
 	playQs := make([]PlayQuestion, 0, len(picked))
 	ids := make([]string, 0, len(picked))
 	for _, q := range picked {
-		opts := make([]string, len(q.Options))
-		copy(opts, q.Options)
-		shuffle(opts) // hide the correct option's position
-		playQs = append(playQs, PlayQuestion{
-			ID:           q.ID,
-			Prompt:       q.Prompt,
-			PromptAksara: q.PromptAksara,
-			Options:      opts,
-			Points:       q.Points,
-		})
+		pq := PlayQuestion{
+			ID:        q.ID,
+			Type:      q.Type,
+			Prompt:    q.Prompt,
+			Points:    q.Points,
+			ShowGuide: q.ShowGuide,
+			Options:   []string{},
+		}
+		switch q.Type {
+		case QuestionWrite:
+			// Reveal the target glyph only when tracing; hide it when the
+			// player must write from memory (the answer key stays server-side).
+			if q.ShowGuide {
+				pq.PromptAksara = q.PromptAksara
+			}
+		case QuestionText:
+			// Options are the accepted answers (the key) — never sent to the
+			// player; they type their answer freely.
+			pq.PromptAksara = q.PromptAksara
+		default: // choice
+			pq.PromptAksara = q.PromptAksara
+			opts := make([]string, len(q.Options))
+			copy(opts, q.Options)
+			shuffle(opts) // hide the correct option's position
+			pq.Options = opts
+		}
+		playQs = append(playQs, pq)
 		ids = append(ids, q.ID)
 	}
 
@@ -179,10 +197,11 @@ func (s *Service) Submit(ctx context.Context, sessionID, userID, username string
 		return nil, err
 	}
 
-	// Index answers and questions for O(1) lookup.
-	given := make(map[string]string, len(answers))
+	// Index answers by question for O(1) lookup.
+	given := make(map[string]Answer, len(answers))
 	for _, a := range answers {
-		given[a.QuestionID] = strings.TrimSpace(a.Answer)
+		a.Answer = strings.TrimSpace(a.Answer)
+		given[a.QuestionID] = a
 	}
 
 	level, err := s.repo.GetLevel(ctx, sess.LevelID)
@@ -192,13 +211,59 @@ func (s *Service) Submit(ctx context.Context, sessionID, userID, username string
 
 	res := &Result{LevelID: sess.LevelID, Total: len(questions)}
 	for _, q := range questions {
+		ans := given[q.ID]
+		res.PointsTotal += q.Points
+
+		if q.Type == QuestionWrite {
+			// Server-side similarity grading against the trusted reference mask;
+			// points are proportional to how closely the drawing matches.
+			score := gradeWrite(q.RefMask, ans.Drawing)
+			ok := score >= writeFloor
+			if ok {
+				res.CorrectCount++
+				res.PointsEarned += q.Points * score / 100
+			}
+			res.Details = append(res.Details, AnswerDetail{
+				QuestionID:    q.ID,
+				Prompt:        q.Prompt,
+				YourAnswer:    fmt.Sprintf("kemiripan %d%%", score),
+				CorrectAnswer: q.PromptAksara,
+				Correct:       ok,
+				Explanation:   q.Explanation,
+			})
+			continue
+		}
+
+		if q.Type == QuestionText {
+			// Free text: accept a case-insensitive match against any of the
+			// stored accepted answers (q.Options).
+			norm := normalizeText(ans.Answer)
+			ok := norm != "" && matchesAcceptedAnswer(norm, q.Options)
+			if ok {
+				res.CorrectCount++
+				res.PointsEarned += q.Points
+			}
+			correct := ""
+			if len(q.Options) > 0 {
+				correct = q.Options[0]
+			}
+			res.Details = append(res.Details, AnswerDetail{
+				QuestionID:    q.ID,
+				Prompt:        q.Prompt,
+				YourAnswer:    ans.Answer,
+				CorrectAnswer: correct,
+				Correct:       ok,
+				Explanation:   q.Explanation,
+			})
+			continue
+		}
+
 		correctText := ""
 		if q.CorrectIndex >= 0 && q.CorrectIndex < len(q.Options) {
 			correctText = q.Options[q.CorrectIndex]
 		}
-		your := given[q.ID]
+		your := ans.Answer
 		ok := your != "" && your == correctText
-		res.PointsTotal += q.Points
 		if ok {
 			res.CorrectCount++
 			res.PointsEarned += q.Points
@@ -318,29 +383,87 @@ func validateLevel(in *LevelInput) error {
 	return nil
 }
 
+// normalizeText folds a free-text answer for tolerant comparison.
+func normalizeText(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
+
+// matchesAcceptedAnswer reports whether a normalized answer equals any of the
+// accepted answers (also normalized).
+func matchesAcceptedAnswer(norm string, accepted []string) bool {
+	for _, a := range accepted {
+		if normalizeText(a) == norm {
+			return true
+		}
+	}
+	return false
+}
+
 func validateQuestion(in *QuestionInput) error {
+	in.Type = strings.TrimSpace(in.Type)
+	if in.Type == "" {
+		in.Type = QuestionChoice
+	}
 	in.Prompt = strings.TrimSpace(in.Prompt)
 	if utf8.RuneCountInString(in.Prompt) < 1 {
 		return ErrValidation{"prompt is required"}
 	}
-	cleaned := make([]string, 0, len(in.Options))
-	for _, o := range in.Options {
-		if t := strings.TrimSpace(o); t != "" {
-			cleaned = append(cleaned, t)
-		}
-	}
-	if len(cleaned) < 2 {
-		return ErrValidation{"at least 2 options are required"}
-	}
-	if len(cleaned) > 6 {
-		return ErrValidation{"at most 6 options are allowed"}
-	}
-	if in.CorrectIndex < 0 || in.CorrectIndex >= len(cleaned) {
-		return ErrValidation{"correct_index is out of range"}
-	}
-	in.Options = cleaned
 	if in.Points <= 0 {
 		in.Points = 10
 	}
-	return nil
+
+	switch in.Type {
+	case QuestionText:
+		cleaned := make([]string, 0, len(in.Options))
+		for _, o := range in.Options {
+			if t := strings.TrimSpace(o); t != "" {
+				cleaned = append(cleaned, t)
+			}
+		}
+		if len(cleaned) < 1 {
+			return ErrValidation{"minimal 1 jawaban yang diterima"}
+		}
+		if len(cleaned) > 6 {
+			return ErrValidation{"maksimal 6 jawaban yang diterima"}
+		}
+		in.Options = cleaned
+		in.CorrectIndex = 0
+		// Write-only fields are irrelevant here.
+		in.RefMask = ""
+		in.ShowGuide = false
+		return nil
+	case QuestionWrite:
+		in.PromptAksara = strings.TrimSpace(in.PromptAksara)
+		if in.PromptAksara == "" {
+			return ErrValidation{"aksara target wajib diisi untuk soal menulis"}
+		}
+		if strings.TrimSpace(in.RefMask) == "" {
+			return ErrValidation{"pola acuan tulisan belum siap; muat ulang editor lalu simpan lagi"}
+		}
+		// Choice-only fields are irrelevant for write questions.
+		in.Options = []string{}
+		in.CorrectIndex = 0
+		return nil
+	case QuestionChoice:
+		cleaned := make([]string, 0, len(in.Options))
+		for _, o := range in.Options {
+			if t := strings.TrimSpace(o); t != "" {
+				cleaned = append(cleaned, t)
+			}
+		}
+		if len(cleaned) < 2 {
+			return ErrValidation{"at least 2 options are required"}
+		}
+		if len(cleaned) > 6 {
+			return ErrValidation{"at most 6 options are allowed"}
+		}
+		if in.CorrectIndex < 0 || in.CorrectIndex >= len(cleaned) {
+			return ErrValidation{"correct_index is out of range"}
+		}
+		in.Options = cleaned
+		// Write-only fields are irrelevant for choice questions.
+		in.RefMask = ""
+		in.ShowGuide = false
+		return nil
+	default:
+		return ErrValidation{"unknown question type"}
+	}
 }

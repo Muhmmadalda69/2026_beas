@@ -27,6 +27,13 @@ type ErrValidation struct{ Msg string }
 
 func (e ErrValidation) Error() string { return e.Msg }
 
+// Question kinds.
+const (
+	QuestionChoice = "choice" // multiple-choice
+	QuestionText   = "text"   // free-text answer, matched against accepted answers
+	QuestionWrite  = "write"  // draw/trace an aksara, graded by similarity
+)
+
 // Level is a difficulty tier. Higher Number means harder.
 type Level struct {
 	ID            string    `json:"id"`
@@ -56,32 +63,42 @@ type LevelInput struct {
 type Question struct {
 	ID           string    `json:"id"`
 	LevelID      string    `json:"level_id"`
+	Type         string    `json:"type"` // "choice" | "write"
 	Prompt       string    `json:"prompt"`
 	PromptAksara string    `json:"prompt_aksara"`
 	Options      []string  `json:"options"`
 	CorrectIndex int       `json:"correct_index"`
 	Explanation  string    `json:"explanation"`
 	Points       int       `json:"points"`
+	ShowGuide    bool      `json:"show_guide"` // write: trace (true) vs from memory
+	RefMask      string    `json:"ref_mask"`   // write: base64 reference mask (answer key)
 	CreatedAt    time.Time `json:"created_at"`
 }
 
 // QuestionInput is the admin-editable payload for a question.
 type QuestionInput struct {
+	Type         string   `json:"type"`
 	Prompt       string   `json:"prompt"`
 	PromptAksara string   `json:"prompt_aksara"`
 	Options      []string `json:"options"`
 	CorrectIndex int      `json:"correct_index"`
 	Explanation  string   `json:"explanation"`
 	Points       int      `json:"points"`
+	ShowGuide    bool     `json:"show_guide"`
+	RefMask      string   `json:"ref_mask"`
 }
 
 // PlayQuestion is the redacted question shown to a player (no correct answer).
+// For write questions Options is empty, and PromptAksara is only sent when
+// ShowGuide is true (tracing) — hidden when the player must write from memory.
 type PlayQuestion struct {
 	ID           string   `json:"id"`
+	Type         string   `json:"type"`
 	Prompt       string   `json:"prompt"`
 	PromptAksara string   `json:"prompt_aksara"`
 	Options      []string `json:"options"` // already shuffled
 	Points       int      `json:"points"`
+	ShowGuide    bool     `json:"show_guide"`
 }
 
 // PlaySession is what the player receives when starting a quiz.
@@ -92,10 +109,13 @@ type PlaySession struct {
 	ExpiresAt time.Time      `json:"expires_at"`
 }
 
-// Answer is one submitted response.
+// Answer is one submitted response. For choice questions Answer holds the
+// chosen option text; for write questions Drawing holds the base64 of the
+// player's binary ink mask (GRID×GRID), graded server-side against RefMask.
 type Answer struct {
 	QuestionID string `json:"question_id"`
-	Answer     string `json:"answer"` // the option text the player chose
+	Answer     string `json:"answer"`
+	Drawing    string `json:"drawing,omitempty"`
 }
 
 // Result is the graded outcome of a submission.

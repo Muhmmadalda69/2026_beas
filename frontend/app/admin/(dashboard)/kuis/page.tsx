@@ -5,6 +5,7 @@ import { clientGw, ApiError } from "@/lib/api";
 import type { Level, LevelInput, Question, QuestionInput } from "@/lib/types";
 import { PlusIcon, EditIcon, TrashIcon } from "@/components/icons";
 import { Skeleton } from "@/components/Skeleton";
+import { loadAksaraFont, glyphMask, maskToBase64 } from "@/lib/aksaraRaster";
 
 const emptyLevel: LevelInput = {
   number: 1,
@@ -16,12 +17,15 @@ const emptyLevel: LevelInput = {
 };
 
 const emptyQuestion: QuestionInput = {
+  type: "choice",
   prompt: "",
   prompt_aksara: "",
   options: ["", ""],
   correct_index: 0,
   explanation: "",
   points: 10,
+  show_guide: true,
+  ref_mask: "",
 };
 
 export default function AdminKuisPage() {
@@ -131,15 +135,30 @@ export default function AdminKuisPage() {
     setSaving(true);
     setError("");
     try {
+      const payload: QuestionInput = { ...qForm };
+      if (payload.type === "write") {
+        // Compute the reference mask (answer key) from the target glyph so the
+        // backend can grade drawings server-side. Same rasteriser the player uses.
+        const target = payload.prompt_aksara.trim();
+        if (!target) {
+          setError("Isi dulu aksara target untuk soal menulis.");
+          setSaving(false);
+          return;
+        }
+        const font = await loadAksaraFont();
+        payload.ref_mask = maskToBase64(glyphMask(font, target));
+        payload.options = [];
+        payload.correct_index = 0;
+      }
       if (qEditId) {
         await clientGw(`quiz/questions/${qEditId}`, {
           method: "PUT",
-          body: JSON.stringify(qForm),
+          body: JSON.stringify(payload),
         });
       } else {
         await clientGw(`quiz/levels/${selected.id}/questions`, {
           method: "POST",
-          body: JSON.stringify(qForm),
+          body: JSON.stringify(payload),
         });
       }
       setQForm(null);
@@ -314,12 +333,20 @@ export default function AdminKuisPage() {
                         <button
                           onClick={() => {
                             setQForm({
+                              type:
+                                q.type === "write"
+                                  ? "write"
+                                  : q.type === "text"
+                                    ? "text"
+                                    : "choice",
                               prompt: q.prompt,
                               prompt_aksara: q.prompt_aksara,
-                              options: [...q.options],
+                              options: q.options.length ? [...q.options] : ["", ""],
                               correct_index: q.correct_index,
                               explanation: q.explanation,
                               points: q.points,
+                              show_guide: q.show_guide ?? true,
+                              ref_mask: q.ref_mask ?? "",
                             });
                             setQEditId(q.id);
                           }}
@@ -337,19 +364,44 @@ export default function AdminKuisPage() {
                         </button>
                       </div>
                     </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {q.options.map((o, i) => (
-                        <span
-                          key={i}
-                          className={`aksara rounded-lg px-2.5 py-1 text-lg ${
-                            i === q.correct_index
-                              ? "bg-olive/15 text-olive"
-                              : "bg-surface-2 text-muted"
-                          }`}
-                        >
-                          {o}
-                        </span>
-                      ))}
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {q.type === "write" ? (
+                        <>
+                          <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                            Menulis · {q.show_guide ? "jiplak" : "dari ingatan"}
+                          </span>
+                          <span className="aksara text-2xl text-foreground">
+                            {q.prompt_aksara}
+                          </span>
+                        </>
+                      ) : q.type === "text" ? (
+                        <>
+                          <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                            Isian
+                          </span>
+                          {q.options.map((o, i) => (
+                            <span
+                              key={i}
+                              className="aksara rounded-lg bg-surface-2 px-2.5 py-1 text-lg text-muted"
+                            >
+                              {o}
+                            </span>
+                          ))}
+                        </>
+                      ) : (
+                        q.options.map((o, i) => (
+                          <span
+                            key={i}
+                            className={`aksara rounded-lg px-2.5 py-1 text-lg ${
+                              i === q.correct_index
+                                ? "bg-olive/15 text-olive"
+                                : "bg-surface-2 text-muted"
+                            }`}
+                          >
+                            {o}
+                          </span>
+                        ))
+                      )}
                     </div>
                   </div>
                 ))}
@@ -446,85 +498,176 @@ export default function AdminKuisPage() {
       {qForm && (
         <Modal title={qEditId ? "Sunting Soal" : "Soal Baru"} onClose={() => setQForm(null)}>
           <form onSubmit={saveQuestion} className="grid gap-4">
-            <Labeled label="Pertanyaan">
+            <Labeled label="Tipe soal">
+              <select
+                value={qForm.type}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  const nonEmpty = qForm.options.filter((o) => o.trim() !== "");
+                  // Isian butuh 1 kolom jawaban; pilihan ganda minimal 2.
+                  const options =
+                    v === "text"
+                      ? nonEmpty.length
+                        ? nonEmpty
+                        : [""]
+                      : v === "choice"
+                        ? qForm.options.length >= 2
+                          ? qForm.options
+                          : [...qForm.options, "", ""].slice(0, 2)
+                        : qForm.options;
+                  setQForm({
+                    ...qForm,
+                    type: v === "write" ? "write" : v === "text" ? "text" : "choice",
+                    options,
+                    correct_index: 0,
+                  });
+                }}
+                className="input"
+              >
+                <option value="choice">Pilihan ganda</option>
+                <option value="text">Isian — pemain mengetik jawaban</option>
+                <option value="write">Menulis aksara (gambar)</option>
+              </select>
+            </Labeled>
+            <Labeled label={qForm.type === "write" ? "Instruksi" : "Pertanyaan"}>
               <textarea
                 required
                 rows={2}
                 value={qForm.prompt}
                 onChange={(e) => setQForm({ ...qForm, prompt: e.target.value })}
+                placeholder={
+                  qForm.type === "write" ? "mis. Tulis aksara ngalagena “ka”." : undefined
+                }
                 className="input resize-none"
               />
             </Labeled>
-            <Labeled label="Aksara pada soal (opsional)">
-              <input
-                value={qForm.prompt_aksara}
-                onChange={(e) =>
-                  setQForm({ ...qForm, prompt_aksara: e.target.value })
-                }
-                className="input aksara text-xl"
-              />
-            </Labeled>
 
-            <div>
-              <span className="text-sm font-medium text-foreground">
-                Pilihan jawaban (tandai yang benar)
-              </span>
-              <div className="mt-2 space-y-2">
-                {qForm.options.map((opt, i) => (
-                  <div key={i} className="flex items-center gap-2">
+            {qForm.type === "write" ? (
+              <>
+                <Labeled label="Aksara target (yang harus ditulis)">
+                  <div className="flex items-center gap-3">
                     <input
-                      type="radio"
-                      name="correct"
-                      checked={qForm.correct_index === i}
-                      onChange={() => setQForm({ ...qForm, correct_index: i })}
-                      className="h-4 w-4 accent-[var(--color-primary)] cursor-pointer"
-                      aria-label={`Tandai pilihan ${i + 1} benar`}
+                      required
+                      value={qForm.prompt_aksara}
+                      onChange={(e) =>
+                        setQForm({ ...qForm, prompt_aksara: e.target.value })
+                      }
+                      placeholder="mis. ᮊ"
+                      className="input aksara text-2xl"
                     />
-                    <input
-                      value={opt}
-                      onChange={(e) => {
-                        const options = [...qForm.options];
-                        options[i] = e.target.value;
-                        setQForm({ ...qForm, options });
-                      }}
-                      placeholder={`Pilihan ${i + 1}`}
-                      className="input aksara text-lg"
-                    />
-                    {qForm.options.length > 2 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const options = qForm.options.filter((_, j) => j !== i);
-                          setQForm({
-                            ...qForm,
-                            options,
-                            correct_index:
-                              qForm.correct_index >= options.length
-                                ? 0
-                                : qForm.correct_index,
-                          });
-                        }}
-                        className="rounded-lg p-1.5 text-muted hover:text-danger cursor-pointer"
-                        aria-label="Hapus pilihan"
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
+                    {qForm.prompt_aksara.trim() && (
+                      <span className="aksara shrink-0 rounded-lg border border-border bg-surface-2/50 px-3 py-1 text-3xl text-primary-soft">
+                        {qForm.prompt_aksara.trim()}
+                      </span>
                     )}
                   </div>
-                ))}
-              </div>
-              {qForm.options.length < 6 && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setQForm({ ...qForm, options: [...qForm.options, ""] })
-                  }
-                  className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary cursor-pointer"
-                >
-                  <PlusIcon className="h-4 w-4" /> Tambah pilihan
-                </button>
-              )}
-            </div>
+                  <p className="mt-1 text-xs text-muted">
+                    Pemain menggambar aksara ini; kemiripannya dinilai 0–100 di
+                    server (poin proporsional).
+                  </p>
+                </Labeled>
+                <Labeled label="Mode menulis">
+                  <select
+                    value={qForm.show_guide ? "guide" : "memory"}
+                    onChange={(e) =>
+                      setQForm({ ...qForm, show_guide: e.target.value === "guide" })
+                    }
+                    className="input"
+                  >
+                    <option value="guide">Jiplak — tampilkan glyph redup</option>
+                    <option value="memory">Dari ingatan — tanpa contoh</option>
+                  </select>
+                </Labeled>
+              </>
+            ) : (
+              <>
+                <Labeled label="Aksara pada soal (opsional)">
+                  <input
+                    value={qForm.prompt_aksara}
+                    onChange={(e) =>
+                      setQForm({ ...qForm, prompt_aksara: e.target.value })
+                    }
+                    className="input aksara text-xl"
+                  />
+                </Labeled>
+
+                <div>
+                  <span className="text-sm font-medium text-foreground">
+                    {qForm.type === "choice"
+                      ? "Pilihan jawaban (tandai yang benar)"
+                      : "Jawaban yang diterima (salah satu benar)"}
+                  </span>
+                  <div className="mt-2 space-y-2">
+                    {qForm.options.map((opt, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        {qForm.type === "choice" && (
+                          <input
+                            type="radio"
+                            name="correct"
+                            checked={qForm.correct_index === i}
+                            onChange={() => setQForm({ ...qForm, correct_index: i })}
+                            className="h-4 w-4 accent-[var(--color-primary)] cursor-pointer"
+                            aria-label={`Tandai pilihan ${i + 1} benar`}
+                          />
+                        )}
+                        <input
+                          value={opt}
+                          onChange={(e) => {
+                            const options = [...qForm.options];
+                            options[i] = e.target.value;
+                            setQForm({ ...qForm, options });
+                          }}
+                          placeholder={
+                            qForm.type === "choice"
+                              ? `Pilihan ${i + 1}`
+                              : `Jawaban ${i + 1}`
+                          }
+                          className="input aksara text-lg"
+                        />
+                        {qForm.options.length > (qForm.type === "choice" ? 2 : 1) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const options = qForm.options.filter((_, j) => j !== i);
+                              setQForm({
+                                ...qForm,
+                                options,
+                                correct_index:
+                                  qForm.correct_index >= options.length
+                                    ? 0
+                                    : qForm.correct_index,
+                              });
+                            }}
+                            className="rounded-lg p-1.5 text-muted hover:text-danger cursor-pointer"
+                            aria-label="Hapus"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {qForm.options.length < 6 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setQForm({ ...qForm, options: [...qForm.options, ""] })
+                      }
+                      className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary cursor-pointer"
+                    >
+                      <PlusIcon className="h-4 w-4" />{" "}
+                      {qForm.type === "choice" ? "Tambah pilihan" : "Tambah jawaban"}
+                    </button>
+                  )}
+                  {qForm.type === "text" && (
+                    <p className="mt-2 text-xs text-muted">
+                      Jawaban pemain dicocokkan tanpa membedakan huruf besar/kecil
+                      dan spasi di ujung. Tambahkan variasi ejaan bila perlu.
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <Labeled label="Poin">
