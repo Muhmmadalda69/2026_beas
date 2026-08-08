@@ -103,6 +103,8 @@ void _showSetPassword(BuildContext context) {
     builder: (dialogCtx) {
       bool loading = false;
       String? error;
+      bool obscure1 = true;
+      bool obscure2 = true;
       return StatefulBuilder(
         builder: (ctx, setLocal) {
           Future<void> submit() async {
@@ -150,14 +152,30 @@ void _showSetPassword(BuildContext context) {
                 const SizedBox(height: 12),
                 TextField(
                   controller: pass,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'Kata sandi baru'),
+                  obscureText: obscure1,
+                  decoration: InputDecoration(
+                    labelText: 'Kata sandi baru',
+                    suffixIcon: IconButton(
+                      icon: Icon(obscure1
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined),
+                      onPressed: () => setLocal(() => obscure1 = !obscure1),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: confirm,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'Ulangi kata sandi'),
+                  obscureText: obscure2,
+                  decoration: InputDecoration(
+                    labelText: 'Ulangi kata sandi',
+                    suffixIcon: IconButton(
+                      icon: Icon(obscure2
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined),
+                      onPressed: () => setLocal(() => obscure2 = !obscure2),
+                    ),
+                  ),
                 ),
                 if (error != null) ...[
                   const SizedBox(height: 10),
