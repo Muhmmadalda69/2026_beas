@@ -1,0 +1,40 @@
+# Registry overrides: run prebuilt images from GHCR instead of building locally.
+#
+# Used together with the base + prod files (deploy.sh does this for you):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#                  -f docker-compose.registry.yml pull
+#
+# `build: !reset null` drops the build section inherited from the base file, so
+# `docker compose up` can never fall back to compiling on the server.
+#
+# GHCR_OWNER / IMAGE_TAG come from .env (see deploy.sh). Pin IMAGE_TAG to a
+# commit SHA to roll back to an earlier build.
+
+services:
+  postgres:
+    build: !reset null
+    image: ghcr.io/${GHCR_OWNER:-muhmmadalda69}/beas-postgres:${IMAGE_TAG:-latest}
+
+  auth:
+    build: !reset null
+    image: ghcr.io/${GHCR_OWNER:-muhmmadalda69}/beas-auth:${IMAGE_TAG:-latest}
+
+  wiki:
+    build: !reset null
+    image: ghcr.io/${GHCR_OWNER:-muhmmadalda69}/beas-wiki:${IMAGE_TAG:-latest}
+
+  quiz:
+    build: !reset null
+    image: ghcr.io/${GHCR_OWNER:-muhmmadalda69}/beas-quiz:${IMAGE_TAG:-latest}
+
+  transliterate:
+    build: !reset null
+    image: ghcr.io/${GHCR_OWNER:-muhmmadalda69}/beas-transliterate:${IMAGE_TAG:-latest}
+
+  gateway:
+    build: !reset null
+    image: ghcr.io/${GHCR_OWNER:-muhmmadalda69}/beas-gateway:${IMAGE_TAG:-latest}
+
+  frontend:
+    build: !reset null
+    image: ghcr.io/${GHCR_OWNER:-muhmmadalda69}/beas-frontend:${IMAGE_TAG:-latest}

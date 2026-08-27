@@ -1,0 +1,91 @@
+# Builds every Béas image on GitHub's runners and pushes them to GHCR.
+#
+# The production box is a 1 GB instance: it can comfortably *run* the stack
+# (~500 MB) but not *build* it (`next build` alone needs ~2 GB). So the build
+# happens here instead, and `deploy.sh` on the server only pulls.
+#
+# Runners are x86_64, matching the server, so no QEMU emulation is involved.
+name: Build images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      # Keep going if one image fails, so a single flake doesn't hide the rest.
+      fail-fast: false
+      matrix:
+        include:
+          - name: postgres
+            context: ./backend/deploy
+            dockerfile: ./backend/deploy/postgres.Dockerfile
+            build-args: ""
+          - name: auth
+            context: ./backend
+            dockerfile: ./backend/Dockerfile
+            build-args: SERVICE=auth
+          - name: wiki
+            context: ./backend
+            dockerfile: ./backend/Dockerfile
+            build-args: SERVICE=wiki
+          - name: quiz
+            context: ./backend
+            dockerfile: ./backend/Dockerfile
+            build-args: SERVICE=quiz
+          - name: transliterate
+            context: ./backend
+            dockerfile: ./backend/Dockerfile
+            build-args: SERVICE=transliterate
+          - name: gateway
+            context: ./backend
+            dockerfile: ./backend/Dockerfile
+            build-args: SERVICE=gateway
+          - name: frontend
+            context: ./frontend
+            dockerfile: ./frontend/Dockerfile
+            build-args: ""
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # GHCR requires an all-lowercase namespace; the GitHub username may not be.
+      - name: Resolve image name
+        id: img
+        run: echo "repo=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/beas-${{ matrix.name }}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          build-args: ${{ matrix.build-args }}
+          push: true
+          # `latest` is what the server pulls; the SHA tag lets you roll back
+          # by setting IMAGE_TAG=<sha> in the server's .env.
+          tags: |
+            ${{ steps.img.outputs.repo }}:latest
+            ${{ steps.img.outputs.repo }}:${{ github.sha }}
+          # Reuse the layer cache between runs — the Go module cache and the
+          # npm cache are the expensive parts.
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          # Skip provenance/SBOM attestations: they turn each tag into a
+          # manifest list with "unknown/unknown" entries, which only adds noise
+          # for a single-platform image.
+          provenance: false

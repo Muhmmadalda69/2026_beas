@@ -1,11 +1,21 @@
 #!/bin/bash
 # Béas production deployment script.
-# Run once on the server to deploy the entire stack.
-#   bash deploy.sh
+# Run on the server to deploy the entire stack.
+#
+#   bash deploy.sh                # registry mode (default): pull prebuilt images
+#   MODE=build bash deploy.sh     # build on this server (needs ~2 GB RAM free)
+#   IMAGE_TAG=<sha> bash deploy.sh  # roll back to a specific CI build
+#
+# Registry mode exists because the production box is a 1 GB instance. It can
+# comfortably *run* the stack (~500 MB) but not *build* it — `next build` alone
+# needs ~2 GB and gets OOM-killed. GitHub Actions (.github/workflows/build-images.yml)
+# builds and pushes the images to GHCR on every push to main; the server only pulls.
 
 set -e
 
 LOG_PREFIX="[béas deploy]"
+MODE="${MODE:-registry}"
+export IMAGE_TAG="${IMAGE_TAG:-latest}"
 
 log() {
   echo "$LOG_PREFIX $*"
@@ -21,26 +31,44 @@ if [ ! -f "docker-compose.yml" ]; then
   exit 1
 fi
 
-log "Béas production deployment"
+if [ "$MODE" != "registry" ] && [ "$MODE" != "build" ]; then
+  error "MODE must be 'registry' or 'build' (got '$MODE')."
+  exit 1
+fi
 
-# 1. Pull latest code with sparse-checkout: only backend + frontend (skip mobile).
-log "Pulling from origin (sparse-checkout: backend + frontend only)..."
-# Initialize & configure sparse-checkout to exclude mobile folder (necessary for Docker build).
+log "Béas production deployment (mode: $MODE, tag: $IMAGE_TAG)"
+
+# Compose file stack. Registry mode adds the overrides that replace every
+# `build:` section with a prebuilt `image:` reference.
+COMPOSE_FILES=(-f docker-compose.yml -f docker-compose.prod.yml)
+if [ "$MODE" = "registry" ]; then
+  COMPOSE_FILES+=(-f docker-compose.registry.yml)
+fi
+
+# 1. Pull latest code with sparse-checkout.
+#    Registry mode needs only the compose files — no source, no build context.
+#    Build mode additionally checks out backend + frontend.
+log "Pulling from origin (sparse-checkout: $MODE mode)..."
 git sparse-checkout init 2>/dev/null || true
-# Set patterns: include backend (with deploy/ for init-db.sql) + frontend + root config.
 {
-  echo "backend/"
-  echo "backend/deploy/"
-  echo "frontend/"
   echo "docker-compose.yml"
   echo "docker-compose.prod.yml"
+  echo "docker-compose.registry.yml"
   echo "deploy.sh"
   echo ".gitignore"
+  if [ "$MODE" = "build" ]; then
+    echo "backend/"
+    echo "backend/deploy/"
+    echo "frontend/"
+  fi
 } | git sparse-checkout set --stdin
-# Pull latest.
 git fetch origin main
 git reset --hard origin/main
-log "Pulled. Mobile folder excluded (sparse-checkout)."
+if [ "$MODE" = "registry" ]; then
+  log "Pulled. Source excluded — this server never compiles anything."
+else
+  log "Pulled. Mobile folder excluded (sparse-checkout)."
+fi
 
 # 2. Generate secrets if .env does not exist.
 if [ ! -f ".env" ]; then
@@ -65,6 +93,12 @@ if [ ! -f ".env" ]; then
     echo "GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback"
     # HTTPS & secure cookies (set true only when behind HTTPS reverse proxy).
     echo "COOKIE_SECURE=false"
+    # GHCR namespace images are pulled from (lowercase GitHub username).
+    echo "GHCR_OWNER=muhmmadalda69"
+    # Only needed if the GHCR packages are private: a GitHub PAT with
+    # read:packages scope, plus the username it belongs to.
+    echo "GHCR_USER="
+    echo "GHCR_TOKEN="
   } > .env
   log "Created .env. Review and update CORS_ORIGINS, domain URLs, and Google OAuth if needed."
 fi
@@ -86,20 +120,38 @@ for i in $(seq 1 $max_retries); do
   sleep 3
 done
 
-# 4. Build & start the full stack (production overrides: port 80, no postgres exposed).
-log "Building and starting services..."
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+# 4. Fetch or build the images, then start the stack.
+if [ "$MODE" = "registry" ]; then
+  # Public GHCR packages need no login; private ones do.
+  # shellcheck disable=SC1091
+  GHCR_USER=$(grep -E '^GHCR_USER=' .env | cut -d= -f2-)
+  GHCR_TOKEN=$(grep -E '^GHCR_TOKEN=' .env | cut -d= -f2-)
+  if [ -n "$GHCR_TOKEN" ]; then
+    log "Logging in to ghcr.io as $GHCR_USER..."
+    echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+  fi
+
+  log "Pulling images from ghcr.io (tag: $IMAGE_TAG)..."
+  docker compose "${COMPOSE_FILES[@]}" pull
+
+  log "Starting services..."
+  docker compose "${COMPOSE_FILES[@]}" up -d
+else
+  log "Building and starting services..."
+  docker compose "${COMPOSE_FILES[@]}" up --build -d
+fi
 
 # 5. Wait for services to be healthy.
 log "Waiting for stack to stabilize..."
 sleep 5
-if ! docker ps | grep -q beas-postgres-1; then
-  error "Services failed to start. Check logs: docker compose logs"
+if [ -z "$(docker compose "${COMPOSE_FILES[@]}" ps -q postgres)" ]; then
+  error "Services failed to start. Check logs: docker compose ${COMPOSE_FILES[*]} logs"
   exit 1
 fi
 log "Stack is running."
 
-# 6. Prune old images and dangling volumes.
+# 6. Prune old images and dangling volumes. In registry mode this matters more:
+#    every deploy leaves the previously-pulled images untagged.
 log "Cleaning up old Docker artifacts..."
 docker image prune -f --filter "dangling=true" || true
 docker volume prune -f || true
@@ -108,10 +160,10 @@ docker volume prune -f || true
 log "Deployment complete!"
 echo ""
 echo "Stack is running. Check status with:"
-echo "  docker compose ps"
+echo "  docker compose ${COMPOSE_FILES[*]} ps"
 echo ""
 echo "View logs:"
-echo "  docker compose logs -f [service-name]"
+echo "  docker compose ${COMPOSE_FILES[*]} logs -f [service-name]"
 echo ""
 echo "Access:"
 echo "  Frontend: http://localhost:3000"
