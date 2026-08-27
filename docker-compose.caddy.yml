@@ -1,0 +1,34 @@
+# Puts Caddy in front of the stack as the single public entry point.
+#
+# Used together with the base + prod (+ registry) files; deploy.sh adds it
+# automatically unless you run PROXY=none bash deploy.sh.
+#
+# Before: frontend published :80, gateway published :8080 (two public ports).
+# After:  Caddy publishes :80 only, and routes by hostname — so the gateway is
+#         reachable at https://api.digipos.cloud instead of http://host:8080.
+#         Cloudflare cannot terminate TLS on port 8080, hence this indirection.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [frontend, gateway]
+    networks: [internal]
+
+  # Both are now reached through Caddy on the internal network, so they no
+  # longer need host ports of their own.
+  frontend:
+    ports: !reset []
+
+  gateway:
+    ports: !reset []
+
+volumes:
+  caddy_data:
+  caddy_config:

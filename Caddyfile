@@ -1,0 +1,37 @@
+# Host-based routing in front of the stack.
+#
+#   digipos.cloud      -> frontend:3000   (the website)
+#   api.digipos.cloud  -> gateway:8080    (the Go gateway, used by the Flutter app)
+#
+# Why this exists: Cloudflare only proxies HTTPS on ports 443/2053/2083/2087/
+# 2096/8443 — never 8080. Publishing the gateway on :8080 would therefore force
+# the mobile app onto plain HTTP. Giving it its own hostname on :443 avoids that.
+#
+# TLS is terminated by Cloudflare, so Caddy speaks plain HTTP on :80 and must
+# NOT try to obtain its own certificates.
+
+{
+	auto_https off
+}
+
+# Client IP, for the per-IP rate limiters in the Go services: Cloudflare puts
+# the visitor's address in X-Forwarded-For, Caddy appends its own behind it, and
+# clientIP() in internal/platform/middleware reads the first entry. So the chain
+# works as-is — no header rewriting needed here.
+
+:80 {
+	log {
+		output stdout
+		format console
+	}
+
+	@api host api.digipos.cloud
+	handle @api {
+		reverse_proxy gateway:8080
+	}
+
+	# Everything else (digipos.cloud, www, the bare IP) goes to the website.
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

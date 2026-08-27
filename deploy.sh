@@ -2,9 +2,10 @@
 # Béas production deployment script.
 # Run on the server to deploy the entire stack.
 #
-#   bash deploy.sh                # registry mode (default): pull prebuilt images
-#   MODE=build bash deploy.sh     # build on this server (needs ~2 GB RAM free)
+#   bash deploy.sh                  # registry mode (default): pull prebuilt images
+#   MODE=build bash deploy.sh       # build on this server (needs ~2 GB RAM free)
 #   IMAGE_TAG=<sha> bash deploy.sh  # roll back to a specific CI build
+#   PROXY=none bash deploy.sh       # skip Caddy; publish frontend :80 + gateway :8080
 #
 # Registry mode exists because the production box is a 1 GB instance. It can
 # comfortably *run* the stack (~500 MB) but not *build* it — `next build` alone
@@ -15,6 +16,7 @@ set -e
 
 LOG_PREFIX="[béas deploy]"
 MODE="${MODE:-registry}"
+PROXY="${PROXY:-caddy}"
 export IMAGE_TAG="${IMAGE_TAG:-latest}"
 
 log() {
@@ -36,13 +38,17 @@ if [ "$MODE" != "registry" ] && [ "$MODE" != "build" ]; then
   exit 1
 fi
 
-log "Béas production deployment (mode: $MODE, tag: $IMAGE_TAG)"
+log "Béas production deployment (mode: $MODE, proxy: $PROXY, tag: $IMAGE_TAG)"
 
 # Compose file stack. Registry mode adds the overrides that replace every
-# `build:` section with a prebuilt `image:` reference.
+# `build:` section with a prebuilt `image:` reference; the Caddy file must come
+# last so its `ports: !reset` wins over the prod overrides.
 COMPOSE_FILES=(-f docker-compose.yml -f docker-compose.prod.yml)
 if [ "$MODE" = "registry" ]; then
   COMPOSE_FILES+=(-f docker-compose.registry.yml)
+fi
+if [ "$PROXY" = "caddy" ]; then
+  COMPOSE_FILES+=(-f docker-compose.caddy.yml)
 fi
 
 # 1. Pull latest code with sparse-checkout.
@@ -54,6 +60,8 @@ git sparse-checkout init 2>/dev/null || true
   echo "docker-compose.yml"
   echo "docker-compose.prod.yml"
   echo "docker-compose.registry.yml"
+  echo "docker-compose.caddy.yml"
+  echo "Caddyfile"
   echo "deploy.sh"
   echo ".gitignore"
   if [ "$MODE" = "build" ]; then
@@ -165,7 +173,18 @@ echo ""
 echo "View logs:"
 echo "  docker compose ${COMPOSE_FILES[*]} logs -f [service-name]"
 echo ""
-echo "Access:"
-echo "  Frontend: http://localhost:3000"
-echo "  Gateway:  http://localhost:8080"
+if [ "$PROXY" = "caddy" ]; then
+  echo "Access (Caddy routes by hostname; Cloudflare terminates TLS):"
+  echo "  Website: https://digipos.cloud/       · admin at /admin"
+  echo "  Gateway: https://api.digipos.cloud/   · for the mobile app"
+else
+  echo "Access (no proxy; ports published directly):"
+  echo "  Frontend: http://<server-ip-or-domain>/        · admin at /admin"
+  echo "  Gateway:  http://<server-ip-or-domain>:8080/   · for the mobile app"
+fi
+echo ""
+echo "Not reachable from outside? Check, in this order:"
+echo "  1. Oracle VCN Security List — ingress TCP 80/443/8080 from 0.0.0.0/0"
+echo "  2. Host firewall            — sudo iptables -L INPUT -n --line-numbers"
+echo "  3. Serving locally at all   — curl -I http://127.0.0.1/"
 echo ""

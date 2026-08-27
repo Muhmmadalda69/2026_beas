@@ -32,32 +32,37 @@ lib/
 
 ## Menjalankan
 
-1. **Pastikan gateway backend dapat dijangkau perangkat.**
-   Di compose produksi, gateway **internal-only** — untuk dipakai app, ekspos
-   port gateway (8080) ke publik (mis. tambahkan mapping `8080:8080` pada service
-   `gateway` dan buka port 8080 di Security Group), **atau** taruh di balik
-   reverse proxy. Gateway menerima `Authorization: Bearer <token>` langsung.
+1. **Gateway sudah dapat dijangkau perangkat.**
+   Di produksi, Caddy pada server merutekan berdasarkan hostname:
+   `digipos.cloud` → frontend, `api.digipos.cloud` → gateway. Cloudflare
+   menerminasi TLS di depannya, jadi app cukup memanggil
+   `https://api.digipos.cloud` **tanpa nomor port**. Gateway menerima
+   `Authorization: Bearer <token>` langsung.
 
-2. **Set base URL** lewat `--dart-define` (default `http://10.0.2.2:8080`, yaitu
-   localhost host untuk emulator Android):
+   > Jangan pakai `https://digipos.cloud:8080`. Cloudflare hanya memproksi
+   > HTTPS di port 443/2053/2083/2087/2096/8443 — tidak pernah 8080.
+
+2. **Set base URL** lewat `--dart-define` (default sudah produksi,
+   `https://api.digipos.cloud`):
 
    ```bash
-   # Emulator Android + stack lokal Docker:
+   # Produksi — tidak perlu define apa pun:
    flutter run
 
-   # Perangkat fisik / server:
-   flutter run --dart-define=API_BASE_URL=http://3.25.24.69:8080
+   # Emulator Android + stack lokal Docker (10.0.2.2 = localhost host):
+   flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080
    ```
 
 3. **Build rilis:**
    ```bash
-   flutter build apk --release --dart-define=API_BASE_URL=https://api.domain-anda
+   flutter build apk --release
    ```
 
 ## Catatan
-- **HTTP (cleartext)** sudah diizinkan (Android `usesCleartextTraffic`, iOS ATS)
-  karena gateway dilayani via HTTP. Untuk rilis publik, gunakan **HTTPS** dan
-  perketat kembali setelan ini.
+- **HTTP (cleartext)** masih diizinkan (Android `usesCleartextTraffic`, iOS ATS)
+  agar pengembangan lokal terhadap `10.0.2.2:8080` tetap bisa. Produksi kini
+  sepenuhnya HTTPS, jadi untuk rilis publik sebaiknya kedua setelan itu
+  diperketat kembali — `NSAllowsArbitraryLoads` kerap diganjal review App Store.
 - **Font dibundel sebagai aset lokal** (`assets/fonts/`) — tidak butuh internet.
   File TTF tidak di-commit ke git; unduh sekali dengan:
   ```powershell
@@ -90,7 +95,7 @@ auth (`docker compose ... up -d --build auth`).
 **Jalankan app dengan kedua define:**
 ```bash
 flutter run \
-  --dart-define=API_BASE_URL=http://3.25.24.69:8080 \
+  --dart-define=API_BASE_URL=https://api.digipos.cloud \
   --dart-define=GOOGLE_SERVER_CLIENT_ID=<web-client-id>.apps.googleusercontent.com
 ```
 Tombol "Masuk dengan Google" hanya muncul bila `GOOGLE_SERVER_CLIENT_ID` diisi.

@@ -3,17 +3,18 @@ class AppConfig {
   /// Base URL of the API **gateway** (the Go gateway, which exposes
   /// `/api/<service>` routes). Override per environment without editing code:
   ///
-  ///   flutter run --dart-define=API_BASE_URL=http://3.25.24.69:8080
+  ///   flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080
   ///
-  /// Default points at `10.0.2.2`, the Android emulator's alias for the host
-  /// machine's localhost — handy when the stack runs locally via Docker.
+  /// `10.0.2.2` is the Android emulator's alias for the host machine's
+  /// localhost — use that when the stack runs locally via Docker.
   ///
-  /// NOTE: in the production compose the gateway is internal-only. To use this
-  /// app against the server you must expose the gateway port (8080) publicly
-  /// (or put it behind a reverse proxy) and allow it in the firewall.
+  /// The default is production. Note there is **no port number**: Cloudflare
+  /// only proxies HTTPS on 443/2053/2083/2087/2096/8443, never 8080, so the
+  /// gateway gets its own hostname instead. Caddy on the server routes
+  /// `api.digipos.cloud` to gateway:8080 (see Caddyfile at the repo root).
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://3.25.24.69.sslip.io:8080',
+    defaultValue: 'https://api.digipos.cloud',
   );
 
   /// OAuth **Web** client ID (the same one used by the website). Passed to
